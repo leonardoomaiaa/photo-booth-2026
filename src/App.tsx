@@ -1,28 +1,60 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Video } from 'lucide-react';
 
 export default function App() {
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
-  const [photoIndex, setPhotoIndex] = useState<number>(1); // 1, 2 ou 3
+  const [photoIndex, setPhotoIndex] = useState<number>(1);
   const [countdown, setCountdown] = useState<number>(5);
   const [previewTimer, setPreviewTimer] = useState<number>(5);
   const [photos, setPhotos] = useState<string[]>([]);
+  
+  // Estados para gerenciar as câmeras conectadas
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Iniciar a webcam ao carregar
+  // Listar todas as câmeras conectadas no computador
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+    async function getCameras() {
+      try {
+        // Solicita permissão inicial para listar os dispositivos com nome
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = allDevices.filter(device => device.kind === 'videoinput');
+        setDevices(videoDevices);
+        
+        if (videoDevices.length > 0 && !selectedDeviceId) {
+          setSelectedDeviceId(videoDevices[0].deviceId);
+        }
+      } catch (err) {
+        console.error("Erro ao listar webcams:", err);
+      }
+    }
+    getCameras();
+  }, []);
+
+  // Iniciar a webcam selecionada
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+
+    navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        deviceId: { exact: selectedDeviceId },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } 
+    })
       .then((stream) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
       })
       .catch((err) => {
-        console.error("Erro ao acessar a webcam:", err);
+        console.error("Erro ao acessar a webcam selecionada:", err);
       });
-  }, []);
+  }, [selectedDeviceId]);
 
   // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
@@ -44,7 +76,6 @@ export default function App() {
       if (previewTimer > 0) {
         timer = setTimeout(() => setPreviewTimer(previewTimer - 1), 1000);
       } else {
-        // Se ainda não tirou as 3 fotos, volta para a contagem da próxima
         if (photoIndex < 3) {
           setPhotoIndex((prev) => prev + 1);
           setCountdown(5);
@@ -84,8 +115,28 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-3xl font-bold mb-2">CABINE DE FOTOS (TIRAS)</h1>
+      
+      {/* Seletor de Câmera */}
+      {step === 'idle' && devices.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+          <Video className="w-5 h-5 text-pink-500" />
+          <span className="text-sm text-slate-300">Câmera:</span>
+          <select 
+            value={selectedDeviceId} 
+            onChange={(e) => setSelectedDeviceId(e.target.value)}
+            className="bg-slate-800 text-white text-sm rounded px-2 py-1 outline-none border border-slate-700"
+          >
+            {devices.map((device, idx) => (
+              <option key={device.deviceId} value={device.deviceId}>
+                {device.label || `Câmera ${idx + 1}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <p className="text-slate-400 mb-6">
-        {step === 'idle' && "Prepare-se para 3 fotos em sequência!"}
+        {step === 'idle' && "Escolha a câmera e prepare-se para 3 fotos!"}
         {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
         {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
         {step === 'done' && "Sua tira ficou pronta!"}
