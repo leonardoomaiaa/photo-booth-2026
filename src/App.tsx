@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Printer, RefreshCcw } from 'lucide-react';
 
 export default function App() {
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
-  const [photoIndex, setPhotoIndex] = useState<number>(0); // 1, 2 ou 3
+  const [photoIndex, setPhotoIndex] = useState<number>(1); // 1, 2 ou 3
   const [countdown, setCountdown] = useState<number>(5);
   const [previewTimer, setPreviewTimer] = useState<number>(5);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -26,7 +26,7 @@ export default function App() {
 
   // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: NodeJS.Timeout;
     if (step === 'countdown') {
       if (countdown > 0) {
         timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -39,12 +39,14 @@ export default function App() {
 
   // Lógica do Preview da foto tirada no monitor (5 segundos)
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: NodeJS.Timeout;
     if (step === 'preview') {
       if (previewTimer > 0) {
         timer = setTimeout(() => setPreviewTimer(previewTimer - 1), 1000);
       } else {
+        // Se ainda não tirou as 3 fotos, volta para a contagem da próxima
         if (photoIndex < 3) {
+          setPhotoIndex((prev) => prev + 1);
           setCountdown(5);
           setStep('countdown');
         } else {
@@ -72,16 +74,7 @@ export default function App() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/png');
-        setPhotos((prev) => {
-          const updated = [...prev, dataUrl];
-          // Se já tirou a 3ª foto, avança o índice para o final
-          if (updated.length >= 3) {
-            setPhotoIndex(3);
-          } else {
-            setPhotoIndex(updated.length + 1);
-          }
-          return updated;
-        });
+        setPhotos((prev) => [...prev, dataUrl]);
         setPreviewTimer(5);
         setStep('preview');
       }
@@ -90,7 +83,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-2">CABINE DE FOTOS (TESTE GITHUB)</h1>
+      <h1 className="text-3xl font-bold mb-2">CABINE DE FOTOS (TIRAS)</h1>
       <p className="text-slate-400 mb-6">
         {step === 'idle' && "Prepare-se para 3 fotos em sequência!"}
         {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
@@ -98,7 +91,6 @@ export default function App() {
         {step === 'done' && "Sua tira ficou pronta!"}
       </p>
 
-      {/* Elemento de vídeo principal da webcam (sempre ativo em segundo plano) */}
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="hidden" />
 
@@ -117,25 +109,24 @@ export default function App() {
         )}
 
         {step === 'countdown' && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-            <span className="text-9xl font-black text-pink-500 animate-bounce">{countdown}</span>
-          </div>
-        )}
-
-        {step === 'countdown' && (
-          <div className="w-full h-full relative flex items-center justify-center bg-black">
-            <video
-              autoPlay
-              playsInline
-              muted
-              ref={(node) => {
-                if (node && videoRef.current && videoRef.current.srcObject) {
-                  node.srcObject = videoRef.current.srcObject;
-                }
-              }}
-              className="w-full h-full object-cover -scale-x-100"
-            />
-          </div>
+          <>
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+              <span className="text-9xl font-black text-pink-500 animate-bounce">{countdown}</span>
+            </div>
+            <div className="w-full h-full relative flex items-center justify-center bg-black">
+              <video
+                autoPlay
+                playsInline
+                muted
+                ref={(node) => {
+                  if (node && videoRef.current && videoRef.current.srcObject) {
+                    node.srcObject = videoRef.current.srcObject;
+                  }
+                }}
+                className="w-full h-full object-cover -scale-x-100"
+              />
+            </div>
+          </>
         )}
 
         {step === 'preview' && photos.length > 0 && (
