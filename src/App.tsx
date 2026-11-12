@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, Printer, RefreshCcw } from 'lucide-react';
 
 export default function App() {
@@ -26,7 +26,7 @@ export default function App() {
 
   // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (step === 'countdown') {
       if (countdown > 0) {
         timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -39,7 +39,7 @@ export default function App() {
 
   // Lógica do Preview da foto tirada no monitor (5 segundos)
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (step === 'preview') {
       if (previewTimer > 0) {
         timer = setTimeout(() => setPreviewTimer(previewTimer - 1), 1000);
