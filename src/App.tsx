@@ -237,4 +237,116 @@ export default function App() {
               <select
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="bg-[#121418] text-white
+                className="bg-[#121418] text-white rounded-lg p-3 outline-none border border-slate-700 text-sm w-full"
+              >
+                {devices.map((device, idx) => (
+                  <option key={device.deviceId || idx} value={device.deviceId}>
+                    {device.label || `Dispositivo de Vídeo ${idx + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Rodapé com botões OK / Cancelar */}
+          <div className="bg-[#121418] px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
+            <button
+              onClick={() => setScreen('sources-modal')}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-5 py-2 rounded-lg transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => setScreen('menu')}
+              className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TELA 4: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
+      {screen === 'booth' && (
+        <div className="flex flex-col items-center w-full max-w-md">
+          <div className="flex items-center justify-between w-full mb-2">
+            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm">
+              <ArrowLeft className="w-4 h-4" /> Menu Principal
+            </button>
+            <h1 className="text-xl font-bold">CABINE DE FOTOS</h1>
+            <div className="w-16"></div>
+          </div>
+
+          <p className="text-slate-400 mb-4 text-sm">
+            {step === 'idle' && "Pronto para iniciar a sequência de 3 fotos!"}
+            {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
+            {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
+            {step === 'done' && "Sua tira ficou pronta!"}
+          </p>
+
+          <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
+            {step === 'idle' && (
+              <div className="text-center p-6">
+                <Camera className="w-16 h-16 mx-auto mb-4 text-pink-500 animate-pulse" />
+                <button onClick={startBoothAction} className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all">
+                  Começar Sequência
+                </button>
+              </div>
+            )}
+
+            {step === 'countdown' && (
+              <>
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+                  <span className="text-9xl font-black text-pink-500 animate-bounce">{countdown}</span>
+                </div>
+                <div className="w-full h-full relative flex items-center justify-center bg-black">
+                  <video
+                    autoPlay
+                    playsInline
+                    muted
+                    ref={(node) => {
+                      if (node && videoRef.current && videoRef.current.srcObject) {
+                        node.srcObject = videoRef.current.srcObject;
+                      }
+                    }}
+                    className="w-full h-full object-cover -scale-x-100"
+                  />
+                </div>
+              </>
+            )}
+
+            {step === 'preview' && photos.length > 0 && (
+              <div className="w-full h-full relative flex items-center justify-center bg-black">
+                <img src={photos[photos.length - 1]} alt="Foto capturada" className="w-full h-full object-cover" />
+                <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-sm font-semibold text-pink-400">
+                  Próxima em {previewTimer}s
+                </div>
+              </div>
+            )}
+
+            {step === 'done' && (
+              <div className="w-full h-full p-4 bg-white flex flex-col items-center justify-around">
+                <div className="w-32 h-full flex flex-col gap-2 bg-slate-100 p-2 border border-slate-300 rounded shadow-inner overflow-y-auto">
+                  {photos.map((p, idx) => (
+                    <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {step === 'done' && (
+            <div className="flex flex-col gap-3 w-full">
+              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow">
+                <Printer className="w-5 h-5" /> Imprimir Tira
+              </button>
+              <button onClick={startSequence} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow">
+                <RefreshCcw className="w-5 h-5" /> Refazer Sequência
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
