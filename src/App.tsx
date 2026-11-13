@@ -23,16 +23,13 @@ export default function App() {
   const [screen, setScreen] = useState<'menu' | 'touch-start' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
-  // Informações da Sessão Atual
   const [eventName, setEventName] = useState<string>('Evento Corporativo / Aniversário');
   const [clientName, setClientName] = useState<string>('Cliente Padrão');
   const [sessionNotes, setSessionNotes] = useState<string>('Sessão padrão de cabine de fotos.');
   
-  // Tamanho de moldura selecionado pelo operador antes do upload
   const [selectedFrameSize, setSelectedFrameSize] = useState<string>('1772 x 2480');
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Lista de Molduras salvas e a Moldura Ativa
   const [framesList, setFramesList] = useState<FrameItem[]>(() => {
     const saved = localStorage.getItem('photo_booth_frames_list');
     if (saved) {
@@ -49,7 +46,6 @@ export default function App() {
     return localStorage.getItem('photo_booth_active_dimensions') || '1772 x 2480';
   });
   
-  // Histórico salvo no navegador de forma segura
   const [sessionsHistory, setSessionsHistory] = useState<SessionRecord[]>(() => {
     const saved = localStorage.getItem('photo_booth_history');
     if (saved) {
@@ -61,7 +57,6 @@ export default function App() {
   const [activeSessionDetail, setActiveSessionDetail] = useState<SessionRecord | null>(null);
   const [selectedFrameModal, setSelectedFrameModal] = useState<SessionRecord | null>(null);
 
-  // Estados de confirmação de encerramento e flash
   const [showEndModal, setShowEndModal] = useState<boolean>(false);
   const [isEnded, setIsEnded] = useState<boolean>(false);
   const [flashActive, setFlashActive] = useState<boolean>(false);
@@ -115,7 +110,6 @@ export default function App() {
       .catch((err) => console.error("Erro ao iniciar o dispositivo selecionado:", err));
   }, [selectedDeviceId, screen]);
 
-  // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (screen === 'booth' && step === 'countdown' && !isEnded) {
@@ -128,7 +122,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [screen, step, countdown, isEnded]);
 
-  // Lógica do Preview da foto tirada no monitor (5 segundos)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (screen === 'booth' && step === 'preview' && !isEnded) {
@@ -254,13 +247,12 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // Função para compilar e baixar o resultado final respeitando exatamente a resolução configurada
+  // Função adaptativa para desenhar as fotos e a moldura respeitando a resolução exata selecionada
   const downloadFullFrame = (sessionPhotos: string[], frameUrl?: string | null, dimensions?: string) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Define a resolução exata com base nas configurações da moldura selecionada
     const dimStr = dimensions || activeFrameDimensions || '1772 x 2480';
     const [canvasWidth, canvasHeight] = dimStr.split(' x ').map(Number);
 
@@ -285,20 +277,33 @@ export default function App() {
       }
     };
 
-    // Proporção de encaixe das 3 fotos (exemplo padrão para tira vertical 1772x2480)
-    // Calcula posições proporcionais ao tamanho escolhido
+    // Posicionamento inteligente baseado no formato (Vertical vs Horizontal)
+    const isVertical = canvasHeight > canvasWidth;
+
     sessionPhotos.forEach((photoUrl, idx) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = photoUrl;
       img.onload = () => {
-        // Exemplo de posicionamento proporcional para o layout de 3 fotos
-        const pWidth = Math.round(canvasWidth * 0.83);
-        const pHeight = Math.round(canvasHeight * 0.28);
-        const pX = Math.round((canvasWidth - pWidth) / 2);
-        const spacing = Math.round(canvasHeight * 0.03);
-        const startY = Math.round(canvasHeight * 0.05);
-        const pY = startY + idx * (pHeight + spacing);
+        let pWidth, pHeight, pX, pY;
+
+        if (isVertical) {
+          // Layout Vertical (ex: 1772x2480 ou 1080x1920)
+          pWidth = Math.round(canvasWidth * 0.82);
+          pHeight = Math.round(canvasHeight * 0.27);
+          pX = Math.round((canvasWidth - pWidth) / 2);
+          const spacing = Math.round(canvasHeight * 0.03);
+          const startY = Math.round(canvasHeight * 0.06);
+          pY = startY + idx * (pHeight + spacing);
+        } else {
+          // Layout Horizontal / Paisagem (ex: 1920x1080 ou 2480x1772) - Fotos lado a lado ou em coluna lateral
+          pWidth = Math.round(canvasWidth * 0.28);
+          pHeight = Math.round(canvasHeight * 0.82);
+          pY = Math.round((canvasHeight - pHeight) / 2);
+          const spacing = Math.round(canvasWidth * 0.03);
+          const startX = Math.round(canvasWidth * 0.06);
+          pX = startX + idx * (pWidth + spacing);
+        }
 
         ctx.drawImage(img, pX, pY, pWidth, pHeight);
         checkComplete();
@@ -506,7 +511,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: DETALHE DA SESSÃO COM EXIBIÇÃO DA MOLDURA E FOTOS POSICIONADAS */}
+      {/* TELA: DETALHE DA SESSÃO */}
       {screen === 'session-detail' && activeSessionDetail && (
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4 max-h-[85vh]">
           <div className="flex items-center justify-between">
@@ -540,7 +545,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE AMPLIAÇÃO DA MOLDURA (LIGHTBOX COM DOWNLOAD NA RESOLUÇÃO EXATA) */}
+      {/* MODAL DE AMPLIAÇÃO DA MOLDURA */}
       {selectedFrameModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-4 relative animate-fade-in">
