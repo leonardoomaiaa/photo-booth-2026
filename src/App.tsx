@@ -9,6 +9,7 @@ interface SessionRecord {
   photosCount: number;
   photos: string[];
   frameUrl?: string | null;
+  frameDimensions?: string;
 }
 
 interface FrameItem {
@@ -42,6 +43,10 @@ export default function App() {
   
   const [activeFrame, setActiveFrame] = useState<string | null>(() => {
     return localStorage.getItem('photo_booth_active_frame') || null;
+  });
+
+  const [activeFrameDimensions, setActiveFrameDimensions] = useState<string>(() => {
+    return localStorage.getItem('photo_booth_active_dimensions') || '1772 x 2480';
   });
   
   // Histórico salvo no navegador de forma segura
@@ -150,7 +155,8 @@ export default function App() {
       clientName: clientName,
       photosCount: capturedPhotos.length,
       photos: capturedPhotos,
-      frameUrl: activeFrame
+      frameUrl: activeFrame,
+      frameDimensions: activeFrameDimensions
     };
     try {
       const updatedHistory = [newRecord, ...sessionsHistory];
@@ -211,7 +217,6 @@ export default function App() {
     }
   };
 
-  // Validação estrita do tamanho da moldura em pixels antes de aceitar o arquivo
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -230,7 +235,6 @@ export default function App() {
           return;
         }
 
-        // Se o tamanho bater perfeitamente, aceita e cadastra a moldura
         const newFrame: FrameItem = {
           id: Date.now().toString(),
           url: result,
@@ -242,53 +246,69 @@ export default function App() {
         localStorage.setItem('photo_booth_frames_list', JSON.stringify(updatedFrames));
         
         setActiveFrame(result);
+        setActiveFrameDimensions(selectedFrameSize);
         localStorage.setItem('photo_booth_active_frame', result);
+        localStorage.setItem('photo_booth_active_dimensions', selectedFrameSize);
       };
     };
     reader.readAsDataURL(file);
   };
 
-  const downloadFullFrame = (session: SessionRecord) => {
+  // Função para compilar e baixar o resultado final respeitando exatamente a resolução configurada
+  const downloadFullFrame = (sessionPhotos: string[], frameUrl?: string | null, dimensions?: string) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = 600;
-    canvas.height = 1800;
+    // Define a resolução exata com base nas configurações da moldura selecionada
+    const dimStr = dimensions || activeFrameDimensions || '1772 x 2480';
+    const [canvasWidth, canvasHeight] = dimStr.split(' x ').map(Number);
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let loadedImages = 0;
-    const totalImages = session.photos.length + (session.frameUrl ? 1 : 0);
+    const totalImages = sessionPhotos.length + (frameUrl ? 1 : 0);
 
     const checkComplete = () => {
       loadedImages++;
       if (loadedImages === totalImages) {
         const link = document.createElement('a');
         link.href = canvas.toDataURL('image/png');
-        link.download = `moldura_${session.eventName.replace(/\s+/g, '_')}_${Date.now()}.png`;
+        link.download = `moldura_${eventName.replace(/\s+/g, '_')}_${canvasWidth}x${canvasHeight}_${Date.now()}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
     };
 
-    session.photos.forEach((photoUrl, idx) => {
+    // Proporção de encaixe das 3 fotos (exemplo padrão para tira vertical 1772x2480)
+    // Calcula posições proporcionais ao tamanho escolhido
+    sessionPhotos.forEach((photoUrl, idx) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = photoUrl;
       img.onload = () => {
-        const yPos = 80 + idx * 560;
-        ctx.drawImage(img, 50, yPos, 500, 500);
+        // Exemplo de posicionamento proporcional para o layout de 3 fotos
+        const pWidth = Math.round(canvasWidth * 0.83);
+        const pHeight = Math.round(canvasHeight * 0.28);
+        const pX = Math.round((canvasWidth - pWidth) / 2);
+        const spacing = Math.round(canvasHeight * 0.03);
+        const startY = Math.round(canvasHeight * 0.05);
+        const pY = startY + idx * (pHeight + spacing);
+
+        ctx.drawImage(img, pX, pY, pWidth, pHeight);
         checkComplete();
       };
     });
 
-    if (session.frameUrl) {
+    if (frameUrl) {
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
-      frameImg.src = session.frameUrl;
+      frameImg.src = frameUrl;
       frameImg.onload = () => {
         ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
         checkComplete();
@@ -374,7 +394,6 @@ export default function App() {
             TOQUE PARA COMEÇAR
           </div>
 
-          {/* Botão discreto na margem inferior para o operador acessar configurações */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -467,6 +486,7 @@ export default function App() {
                   <div>
                     <div className="text-base font-bold text-white">{s.eventName}</div>
                     <div className="text-xs text-slate-400">Cliente: {s.clientName}</div>
+                    <div className="text-[10px] text-pink-400 mt-1">Resolução: {s.frameDimensions || '1772 x 2480'} px</div>
                   </div>
                   <div className="flex justify-end pt-1 border-t border-slate-700/50">
                     <button
@@ -497,7 +517,7 @@ export default function App() {
             <div className="w-8"></div>
           </div>
 
-          <p className="text-xs text-slate-400 text-center">Clique na moldura abaixo para ampliar e baixar:</p>
+          <p className="text-xs text-slate-400 text-center">Resolução: {activeSessionDetail.frameDimensions || '1772 x 2480'} px. Clique na moldura para baixar:</p>
 
           <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center overflow-y-auto max-h-[55vh]">
             <div 
@@ -520,7 +540,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE AMPLIAÇÃO DA MOLDURA (LIGHTBOX COM DOWNLOAD) */}
+      {/* MODAL DE AMPLIAÇÃO DA MOLDURA (LIGHTBOX COM DOWNLOAD NA RESOLUÇÃO EXATA) */}
       {selectedFrameModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-4 relative animate-fade-in">
@@ -531,7 +551,7 @@ export default function App() {
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-base font-bold text-white">Moldura Completa</h3>
+            <h3 className="text-base font-bold text-white">Moldura Completa ({selectedFrameModal.frameDimensions || '1772 x 2480'} px)</h3>
 
             <div className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 aspect-[1/3] max-h-[55vh]">
               <div className="absolute inset-0 p-2 flex flex-col justify-around bg-slate-100">
@@ -545,16 +565,16 @@ export default function App() {
             </div>
 
             <button
-              onClick={() => downloadFullFrame(selectedFrameModal)}
+              onClick={() => downloadFullFrame(selectedFrameModal.photos, selectedFrameModal.frameUrl, selectedFrameModal.frameDimensions)}
               className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow transition-all cursor-pointer text-sm w-full mt-2"
             >
-              <Download className="w-4 h-4" /> Baixar Moldura Completa
+              <Download className="w-4 h-4" /> Baixar na Resolução Exata
             </button>
           </div>
         </div>
       )}
 
-      {/* TELA: ESTILO OBS STUDIO (ADICIONAR FONTE COM SELEÇÃO DE TAMANHO DE MOLDURA) */}
+      {/* TELA: ESTILO OBS STUDIO (ADICIONAR FONTE) */}
       {screen === 'sources-modal' && (
         <div className="w-full max-w-5xl h-[650px] bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
           <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -605,7 +625,6 @@ export default function App() {
                     <h2 className="text-base font-semibold text-white mb-1">Imagem (Moldura)</h2>
                     <p className="text-xs text-slate-400 mb-4">Selecione o tamanho padrão desejado e faça upload da moldura compatível.</p>
                     
-                    {/* Seletor de Tamanhos de Moldura */}
                     <div className="flex flex-col gap-2 mb-4">
                       <label className="text-xs font-semibold text-slate-300">Tamanho da Moldura (Resolução Exata):</label>
                       <select
@@ -623,7 +642,6 @@ export default function App() {
                       </select>
                     </div>
 
-                    {/* Alerta de Erro de Compatibilidade de Tamanho */}
                     {uploadError && (
                       <div className="bg-red-950/80 border border-red-700 text-red-200 px-4 py-3 rounded-xl text-xs mb-4 flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
@@ -664,7 +682,9 @@ export default function App() {
                             <button
                               onClick={() => {
                                 setActiveFrame(frame.url);
+                                setActiveFrameDimensions(frame.dimensions);
                                 localStorage.setItem('photo_booth_active_frame', frame.url);
+                                localStorage.setItem('photo_booth_active_dimensions', frame.dimensions);
                               }}
                               className={`text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer ${
                                 activeFrame === frame.url 
@@ -884,15 +904,18 @@ export default function App() {
 
           {step === 'done' && !isEnded && (
             <div className="flex flex-col gap-3 w-full">
-              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
-                <Printer className="w-5 h-5" /> Imprimir Tira
+              <button 
+                onClick={() => downloadFullFrame(photos, activeFrame, activeFrameDimensions)} 
+                className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer text-sm"
+              >
+                <Download className="w-5 h-5" /> Baixar Tira Final ({activeFrameDimensions} px)
               </button>
-              <button onClick={openBooth} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
+              <button onClick={openBooth} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer text-sm">
                 <RefreshCcw className="w-5 h-5" /> Refazer Sequência
               </button>
               <button 
                 onClick={() => setShowEndModal(true)} 
-                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all cursor-pointer"
+                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all cursor-pointer text-sm"
               >
                 <XCircle className="w-5 h-5" /> Encerrar Sessão
               </button>
