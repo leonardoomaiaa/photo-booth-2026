@@ -319,7 +319,6 @@ export default function App() {
     }
   };
 
-  // Helper para calcular a proporção exata para o preview na tela
   const getAspectRatioStyle = (dimStr?: string) => {
     const [w, h] = (dimStr || activeFrameDimensions || '1772 x 2480').split(' x ').map(Number);
     return { aspectRatio: `${w} / ${h}` };
@@ -515,22 +514,22 @@ export default function App() {
 
       {/* TELA: DETALHE DA SESSÃO */}
       {screen === 'session-detail' && activeSessionDetail && (
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4 max-h-[85vh]">
+        <div className="w-full max-w-lg bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4 max-h-[85vh]">
           <div className="flex items-center justify-between">
             <button onClick={() => setScreen('history')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
-            <h2 className="text-sm font-bold truncate max-w-[180px]">{activeSessionDetail.eventName}</h2>
+            <h2 className="text-sm font-bold truncate max-w-[200px]">{activeSessionDetail.eventName}</h2>
             <div className="w-8"></div>
           </div>
 
-          <p className="text-xs text-slate-400 text-center">Resolução: {activeSessionDetail.frameDimensions || '1772 x 2480'} px. Clique na moldura para baixar:</p>
+          <p className="text-xs text-slate-400 text-center">Resolução: {activeSessionDetail.frameDimensions || '1772 x 2480'} px. Clique para baixar:</p>
 
-          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center overflow-y-auto max-h-[55vh]">
+          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex items-center justify-center overflow-hidden max-h-[55vh]">
             <div 
               onClick={() => setSelectedFrameModal(activeSessionDetail)}
               style={getAspectRatioStyle(activeSessionDetail.frameDimensions)}
-              className="w-32 bg-white rounded shadow-2xl cursor-pointer border-2 border-slate-300 transition-transform hover:scale-105 relative group overflow-hidden"
+              className="h-full max-h-[45vh] bg-white rounded shadow-2xl cursor-pointer border-2 border-slate-300 transition-transform hover:scale-105 relative group overflow-hidden flex items-center justify-center"
             >
               <div className="absolute inset-0 p-1 flex flex-col justify-around bg-slate-100">
                 {activeSessionDetail.photos.map((p, idx) => (
@@ -551,7 +550,7 @@ export default function App() {
       {/* MODAL DE AMPLIAÇÃO DA MOLDURA */}
       {selectedFrameModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-4 relative animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-lg w-full flex flex-col items-center gap-4 relative animate-fade-in">
             <button
               onClick={() => setSelectedFrameModal(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-all cursor-pointer"
@@ -563,7 +562,7 @@ export default function App() {
 
             <div 
               style={getAspectRatioStyle(selectedFrameModal.frameDimensions)}
-              className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 max-h-[55vh]"
+              className="relative bg-white rounded-2xl shadow-2xl h-[55vh] max-h-[60vh] overflow-hidden border-4 border-slate-300 flex items-center justify-center"
             >
               <div className="absolute inset-0 p-2 flex flex-col justify-around bg-slate-100">
                 {selectedFrameModal.photos.map((p, idx) => (
@@ -778,7 +777,7 @@ export default function App() {
 
       {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
       {screen === 'booth' && (
-        <div className="flex flex-col items-center w-full max-w-md">
+        <div className="flex flex-col items-center w-full max-w-lg h-[85vh]">
           {flashActive && (
             <div className="absolute inset-0 bg-white z-50 animate-ping pointer-events-none"></div>
           )}
@@ -793,11 +792,11 @@ export default function App() {
             >
               <ArrowLeft className="w-4 h-4" /> Tela Inicial
             </button>
-            <h1 className="text-xl font-bold">{eventName}</h1>
+            <h1 className="text-xl font-bold truncate max-w-[240px]">{eventName}</h1>
             <div className="w-16"></div>
           </div>
 
-          <p className="text-slate-400 mb-4 text-sm font-medium">
+          <p className="text-slate-400 mb-3 text-sm font-medium">
             {step === 'idle' && "Câmera ativa. Clique em Começar para iniciar!"}
             {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
@@ -805,10 +804,11 @@ export default function App() {
             {isEnded && "Sessão encerrada com sucesso."}
           </p>
 
-          <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
+          {/* Container delimitado ocupando o espaço central com proporção correta */}
+          <div className="relative w-full flex-1 bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center p-3 mb-4">
             
             {step === 'idle' && !isEnded && (
-              <div className="w-full h-full relative flex flex-col items-center justify-between p-4 bg-black">
+              <div className="w-full h-full relative flex flex-col items-center justify-between p-2 bg-black">
                 <div className="w-full flex-1 relative flex items-center justify-center overflow-hidden rounded-lg">
                   <video
                     autoPlay
@@ -825,10 +825,10 @@ export default function App() {
                     <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
                   )}
                 </div>
-                <div className="w-full pt-4">
+                <div className="w-full pt-3">
                   <button
                     onClick={startSequence}
-                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg transition-all text-base cursor-pointer"
+                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all text-base cursor-pointer"
                   >
                     Começar
                   </button>
@@ -877,12 +877,12 @@ export default function App() {
               </div>
             )}
 
-            {/* TELA FINAL: PREVIEW FIEL E PROPORCIONAL À RESOLUÇÃO ESCOLHIDA */}
+            {/* TELA FINAL: PREVIEW PREENCHENDO O ESPAÇO DENTRO DA ÁREA DELIMITADA */}
             {step === 'done' && !isEnded && (
-              <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden p-2">
+              <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden">
                 <div 
                   style={getAspectRatioStyle(activeFrameDimensions)}
-                  className="relative w-40 bg-white rounded shadow-2xl overflow-hidden flex flex-col justify-around border border-slate-300"
+                  className="relative h-full max-h-[50vh] bg-white rounded shadow-2xl overflow-hidden flex items-center justify-center border border-slate-300"
                 >
                   <div className="absolute inset-0 p-1 flex flex-col justify-around bg-slate-100">
                     {photos.map((p, idx) => (
@@ -920,7 +920,7 @@ export default function App() {
           </div>
 
           {step === 'done' && !isEnded && (
-            <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col gap-2.5 w-full">
               <button 
                 onClick={() => downloadFullFrame(photos, activeFrame, activeFrameDimensions)} 
                 className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer text-sm"
