@@ -12,7 +12,7 @@ interface SessionRecord {
 
 export default function App() {
   const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'register-session' | 'history' | 'booth'>('menu');
-  const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
+  const [step, setStep] = useState<'countdown' | 'preview' | 'done'>('countdown');
   
   // Informações da Sessão Atual
   const [eventName, setEventName] = useState<string>('Evento Corporativo / Aniversário');
@@ -80,9 +80,10 @@ export default function App() {
       .catch((err) => console.error("Erro ao iniciar o dispositivo selecionado:", err));
   }, [selectedDeviceId, screen]);
 
+  // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (screen === 'booth' && step === 'countdown') {
+    if (screen === 'booth' && step === 'countdown' && !isEnded) {
       if (countdown > 0) {
         timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       } else {
@@ -90,11 +91,12 @@ export default function App() {
       }
     }
     return () => clearTimeout(timer);
-  }, [screen, step, countdown]);
+  }, [screen, step, countdown, isEnded]);
 
+  // Lógica do Preview da foto tirada no monitor (5 segundos)
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (screen === 'booth' && step === 'preview') {
+    if (screen === 'booth' && step === 'preview' && !isEnded) {
       if (previewTimer > 0) {
         timer = setTimeout(() => setPreviewTimer(previewTimer - 1), 1000);
       } else {
@@ -120,7 +122,7 @@ export default function App() {
       }
     }
     return () => clearTimeout(timer);
-  }, [screen, step, previewTimer, photoIndex, photos, eventName, clientName, sessionsHistory]);
+  }, [screen, step, previewTimer, photoIndex, photos, eventName, clientName, sessionsHistory, isEnded]);
 
   const startSequence = () => {
     setIsEnded(false);
@@ -128,8 +130,8 @@ export default function App() {
     setPhotos([]);
     setPhotoIndex(1);
     setCountdown(5);
-    setStep('idle');
-    setScreen('booth'); // Força a troca imediata para a tela da cabine
+    setStep('countdown'); // Inicia direto na contagem regressiva da primeira foto
+    setScreen('booth');
   };
 
   const takePhoto = () => {
@@ -163,21 +165,21 @@ export default function App() {
           <div className="flex flex-col gap-3 w-full">
             <button
               onClick={startSequence}
-              className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all text-base"
+              className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all text-base cursor-pointer"
             >
               <Camera className="w-5 h-5" /> Iniciar Sessão
             </button>
 
             <button
               onClick={() => setScreen('register-session')}
-              className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3.5 px-6 rounded-2xl border border-slate-700 transition-all text-base"
+              className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3.5 px-6 rounded-2xl border border-slate-700 transition-all text-base cursor-pointer"
             >
               <Calendar className="w-5 h-5 text-pink-500" /> Cadastrar Sessão
             </button>
 
             <button
               onClick={() => setScreen('history')}
-              className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3.5 px-6 rounded-2xl border border-slate-700 transition-all text-base"
+              className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3.5 px-6 rounded-2xl border border-slate-700 transition-all text-base cursor-pointer"
             >
               <History className="w-5 h-5 text-amber-400" /> Históricos de Sessões
             </button>
@@ -187,7 +189,7 @@ export default function App() {
                 setScreen('sources-modal');
                 loadDevices();
               }}
-              className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3.5 px-6 rounded-2xl border border-slate-700 transition-all text-base"
+              className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3.5 px-6 rounded-2xl border border-slate-700 transition-all text-base cursor-pointer"
             >
               <Settings className="w-5 h-5 text-blue-400" /> Inserir Fontes
             </button>
@@ -199,7 +201,7 @@ export default function App() {
       {screen === 'register-session' && (
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col gap-5">
           <div className="flex items-center justify-between">
-            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm">
+            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
             <h2 className="text-xl font-bold">Cadastrar Sessão</h2>
@@ -240,7 +242,7 @@ export default function App() {
 
           <button
             onClick={() => setScreen('menu')}
-            className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-xl shadow transition-all mt-2"
+            className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-xl shadow transition-all mt-2 cursor-pointer"
           >
             Salvar e Voltar ao Menu
           </button>
@@ -251,7 +253,7 @@ export default function App() {
       {screen === 'history' && (
         <div className="w-full max-w-lg bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col gap-5 max-h-[80vh]">
           <div className="flex items-center justify-between">
-            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm">
+            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
             <h2 className="text-xl font-bold">Histórico de Sessões</h2>
@@ -286,16 +288,16 @@ export default function App() {
         <div className="w-full max-w-5xl h-[620px] bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
           <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <span className="font-semibold text-sm">Adicionar fonte</span>
-            <button onClick={() => setScreen('menu')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1">✕</button>
+            <button onClick={() => setScreen('menu')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 cursor-pointer">✕</button>
           </div>
 
           <div className="flex flex-1 overflow-hidden">
             <div className="w-72 bg-[#121418] border-r border-slate-800 flex flex-col overflow-y-auto p-2 gap-1">
               <div className="text-xs font-bold text-slate-500 px-3 py-2 uppercase tracking-wider">Criado recentemente</div>
-              <button onClick={() => setSelectedSourceType('video-capture')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${selectedSourceType === 'video-capture' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}>
+              <button onClick={() => setSelectedSourceType('video-capture')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors cursor-pointer ${selectedSourceType === 'video-capture' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}>
                 <Video className="w-4 h-4 text-pink-500" /> Dispositivo de captura de vídeo
               </button>
-              <button onClick={() => setSelectedSourceType('image')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${selectedSourceType === 'image' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}>
+              <button onClick={() => setSelectedSourceType('image')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors cursor-pointer ${selectedSourceType === 'image' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}>
                 <ImageIcon className="w-4 h-4 text-blue-400" /> Imagem (Moldura)
               </button>
             </div>
@@ -326,7 +328,7 @@ export default function App() {
                   <input type="checkbox" defaultChecked className="rounded bg-slate-800 border-slate-700 text-pink-600 focus:ring-0" />
                   Tornar a fonte visível
                 </label>
-                <button onClick={() => setScreen('menu')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all">
+                <button onClick={() => setScreen('menu')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all cursor-pointer">
                   Fechar
                 </button>
               </div>
@@ -340,7 +342,7 @@ export default function App() {
         <div className="w-full max-w-2xl bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
           <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <span className="font-semibold text-sm">Propriedades de 'Dispositivo de captura de vídeo'</span>
-            <button onClick={() => setScreen('sources-modal')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1">✕</button>
+            <button onClick={() => setScreen('sources-modal')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 cursor-pointer">✕</button>
           </div>
 
           <div className="p-6 flex flex-col gap-6">
@@ -357,12 +359,12 @@ export default function App() {
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-semibold text-slate-300">Dispositivo</label>
-                <button onClick={loadDevices} className="text-xs text-pink-400 hover:underline">Atualizar lista</button>
+                <button onClick={loadDevices} className="text-xs text-pink-400 hover:underline cursor-pointer">Atualizar lista</button>
               </div>
               <select
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="bg-[#121418] text-white rounded-lg p-3 outline-none border border-slate-700 text-sm w-full"
+                className="bg-[#121418] text-white rounded-lg p-3 outline-none border border-slate-700 text-sm w-full cursor-pointer"
               >
                 {devices.length === 0 ? (
                   <option value="">Nenhum dispositivo encontrado</option>
@@ -378,8 +380,8 @@ export default function App() {
           </div>
 
           <div className="bg-[#121418] px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
-            <button onClick={() => setScreen('sources-modal')} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-5 py-2 rounded-lg transition-all">Cancelar</button>
-            <button onClick={() => setScreen('menu')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all">OK</button>
+            <button onClick={() => setScreen('sources-modal')} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-5 py-2 rounded-lg transition-all cursor-pointer">Cancelar</button>
+            <button onClick={() => setScreen('menu')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all cursor-pointer">OK</button>
           </div>
         </div>
       )}
@@ -388,7 +390,7 @@ export default function App() {
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
           <div className="flex items-center justify-between w-full mb-2">
-            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm">
+            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
               <ArrowLeft className="w-4 h-4" /> Menu Principal
             </button>
             <h1 className="text-xl font-bold">{eventName}</h1>
@@ -396,7 +398,6 @@ export default function App() {
           </div>
 
           <p className="text-slate-400 mb-4 text-sm">
-            {step === 'idle' && `Cliente: ${clientName} - Pronto para 3 fotos!`}
             {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
             {step === 'done' && !isEnded && "Sua tira ficou pronta!"}
@@ -404,15 +405,6 @@ export default function App() {
           </p>
 
           <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
-            {step === 'idle' && !isEnded && (
-              <div className="text-center p-6">
-                <Camera className="w-16 h-16 mx-auto mb-4 text-pink-500 animate-pulse" />
-                <button onClick={startSequence} className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all">
-                  Começar Sequência
-                </button>
-              </div>
-            )}
-
             {step === 'countdown' && !isEnded && (
               <>
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
@@ -456,7 +448,6 @@ export default function App() {
             {/* ESTADO FINAL: FIM COM CONFETES */}
             {isEnded && (
               <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center z-20 animate-fade-in">
-                {/* Efeito de Confetes Animados */}
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
                   <div className="absolute w-3 h-3 bg-pink-500 rounded-full animate-ping top-1/4 left-1/4"></div>
                   <div className="absolute w-4 h-4 bg-amber-400 rounded-sm animate-bounce top-1/3 right-1/4"></div>
@@ -470,7 +461,7 @@ export default function App() {
                 <p className="text-slate-400 text-sm z-10 mb-6">Sessão finalizada com sucesso!</p>
                 <button
                   onClick={() => setScreen('menu')}
-                  className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg z-10 transition-all"
+                  className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg z-10 transition-all cursor-pointer"
                 >
                   Voltar ao Menu Principal
                 </button>
@@ -481,15 +472,15 @@ export default function App() {
           {/* BOTÕES DA TELA FINAL (IMPRIMIR / REFAZER / ENCERRAR SESSÃO) */}
           {step === 'done' && !isEnded && (
             <div className="flex flex-col gap-3 w-full">
-              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow">
+              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
                 <Printer className="w-5 h-5" /> Imprimir Tira
               </button>
-              <button onClick={startSequence} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow">
+              <button onClick={startSequence} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
                 <RefreshCcw className="w-5 h-5" /> Refazer Sequência
               </button>
               <button 
                 onClick={() => setShowEndModal(true)} 
-                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all"
+                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all cursor-pointer"
               >
                 <XCircle className="w-5 h-5" /> Encerrar Sessão
               </button>
@@ -509,13 +500,13 @@ export default function App() {
                   setShowEndModal(false);
                   setIsEnded(true);
                 }}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow transition-all"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow transition-all cursor-pointer"
               >
                 SIM
               </button>
               <button
                 onClick={() => setShowEndModal(false)}
-                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl shadow transition-all"
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl shadow transition-all cursor-pointer"
               >
                 NÃO
               </button>
