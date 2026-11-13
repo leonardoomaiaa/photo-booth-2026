@@ -19,7 +19,7 @@ export default function App() {
   const [clientName, setClientName] = useState<string>('Cliente Padrão');
   const [sessionNotes, setSessionNotes] = useState<string>('Sessão padrão de cabine de fotos.');
   
-  // Histórico salvo no navegador (localStorage)
+  // Histórico salvo no navegador de forma segura
   const [sessionsHistory, setSessionsHistory] = useState<SessionRecord[]>(() => {
     const saved = localStorage.getItem('photo_booth_history');
     if (saved) {
@@ -29,7 +29,7 @@ export default function App() {
   });
 
   const [activeSessionDetail, setActiveSessionDetail] = useState<SessionRecord | null>(null);
-  const [selectedPhotoModal, setSelectedPhotoModal] = useState<string | null>(null);
+  const [selectedFrameModal, setSelectedFrameModal] = useState<SessionRecord | null>(null);
 
   // Estados de confirmação de encerramento e confetes
   const [showEndModal, setShowEndModal] = useState<boolean>(false);
@@ -109,23 +109,30 @@ export default function App() {
           setStep('countdown');
         } else {
           setStep('done');
-          // Salvar automaticamente no LocalStorage do navegador
-          const newRecord: SessionRecord = {
-            id: Date.now().toString(),
-            date: new Date().toLocaleString('pt-BR'),
-            eventName: eventName,
-            clientName: clientName,
-            photosCount: 3,
-            photos: photos
-          };
-          const updatedHistory = [newRecord, ...sessionsHistory];
-          setSessionsHistory(updatedHistory);
-          localStorage.setItem('photo_booth_history', JSON.stringify(updatedHistory));
         }
       }
     }
     return () => clearTimeout(timer);
-  }, [screen, step, previewTimer, photoIndex, photos, eventName, clientName, sessionsHistory, isEnded]);
+  }, [screen, step, previewTimer, photoIndex, isEnded]);
+
+  // Função para salvar a sessão no histórico de forma segura
+  const registerCompletedSession = (capturedPhotos: string[]) => {
+    const newRecord: SessionRecord = {
+      id: Date.now().toString(),
+      date: new Date().toLocaleString('pt-BR'),
+      eventName: eventName,
+      clientName: clientName,
+      photosCount: capturedPhotos.length,
+      photos: capturedPhotos
+    };
+    try {
+      const updatedHistory = [newRecord, ...sessionsHistory];
+      setSessionsHistory(updatedHistory);
+      localStorage.setItem('photo_booth_history', JSON.stringify(updatedHistory));
+    } catch (e) {
+      console.error("Armazenamento local cheio", e);
+    }
+  };
 
   const openBooth = () => {
     setIsEnded(false);
@@ -151,22 +158,62 @@ export default function App() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/png');
-        setPhotos((prev) => [...prev, dataUrl]);
+        const dataUrl = canvas.toDataURL('image/png', 0.8);
+        setPhotos((prev) => {
+          const updated = [...prev, dataUrl];
+          if (updated.length === 3) {
+            registerCompletedSession(updated);
+          }
+          return updated;
+        });
         setPreviewTimer(5);
         setStep('preview');
       }
     }
   };
 
-  // Função para baixar uma foto individual
-  const downloadSinglePhoto = (photoUrl: string, index: number) => {
-    const link = document.createElement('a');
-    link.href = photoUrl;
-    link.download = `foto_${index + 1}_${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Função para gerar e baixar a moldura completa combinada
+  const downloadFullFrame = (session: SessionRecord) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Dimensões da tira/moldura
+    canvas.width = 400;
+    canvas.height = 1200;
+
+    // Fundo branco da moldura
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let loadedCount = 0;
+    const imageElements: HTMLImageElement[] = [];
+
+    session.photos.forEach((photoUrl, idx) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = photoUrl;
+      img.onload = () => {
+        imageElements[idx] = img;
+        loadedCount++;
+
+        if (loadedCount === session.photos.length) {
+          // Desenha as 3 fotos na moldura verticalmente
+          imageElements.forEach((image, i) => {
+            const yPos = 30 + i * 380;
+            ctx.drawImage(image, 25, yPos, 350, 350);
+          });
+
+          // Baixa o arquivo resultante
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = `moldura_${session.eventName.replace(/\s+/g, '_')}_${Date.now()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      };
+    });
   };
 
   return (
@@ -315,7 +362,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: DETALHE DA SESSÃO COM FOTOS EXPANSÍVEIS */}
+      {/* TELA: DETALHE DA SESSÃO COM EXIBIÇÃO DA MOLDURA COMPLETA */}
       {screen === 'session-detail' && activeSessionDetail && (
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4 max-h-[85vh]">
           <div className="flex items-center justify-between">
@@ -326,52 +373,50 @@ export default function App() {
             <div className="w-8"></div>
           </div>
 
-          <p className="text-xs text-slate-400 text-center">Clique em qualquer foto para ampliar e baixar:</p>
+          <p className="text-xs text-slate-400 text-center">Clique na moldura abaixo para ampliar e baixar:</p>
 
-          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center gap-3 overflow-y-auto max-h-[50vh]">
-            <div className="w-36 flex flex-col gap-3 bg-slate-100 p-2 rounded shadow-inner">
+          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center overflow-y-auto max-h-[55vh]">
+            {/* Moldura clicável contendo todas as fotos */}
+            <div 
+              onClick={() => setSelectedFrameModal(activeSessionDetail)}
+              className="w-36 bg-white p-2 rounded shadow-2xl cursor-pointer border-2 border-slate-300 flex flex-col gap-2 transition-transform hover:scale-105 relative group"
+            >
               {activeSessionDetail.photos.map((p, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => setSelectedPhotoModal(p)}
-                  className="relative group cursor-pointer overflow-hidden rounded border border-slate-300 transition-all hover:scale-[1.02]"
-                >
-                  <img src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
-                    <Eye className="w-4 h-4" /> Ampliar
-                  </div>
-                </div>
+                <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded pointer-events-none" />
               ))}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 rounded">
+                <Eye className="w-4 h-4" /> Ampliar Moldura
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL DE AMPLIAÇÃO DA FOTO (LIGHTBOX COM DOWNLOAD) */}
-      {selectedPhotoModal && (
+      {/* MODAL DE AMPLIAÇÃO DA MOLDURA (LIGHTBOX COM DOWNLOAD) */}
+      {selectedFrameModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-lg w-full flex flex-col items-center gap-4 relative animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-4 relative animate-fade-in">
             <button
-              onClick={() => setSelectedPhotoModal(null)}
+              onClick={() => setSelectedFrameModal(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-all cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-base font-bold text-white">Visualização da Foto</h3>
+            <h3 className="text-base font-bold text-white">Moldura Completa</h3>
 
-            <div className="w-full bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center max-h-[60vh]">
-              <img src={selectedPhotoModal} alt="Foto ampliada" className="max-h-[55vh] object-contain rounded-lg" />
+            {/* Moldura expandida em tela cheia */}
+            <div className="bg-white p-3 rounded-2xl shadow-2xl w-48 flex flex-col gap-3 border-4 border-slate-300 max-h-[55vh] overflow-y-auto">
+              {selectedFrameModal.photos.map((p, idx) => (
+                <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded pointer-events-none" />
+              ))}
             </div>
 
             <button
-              onClick={() => {
-                const idx = activeSessionDetail?.photos.findIndex(p => p === selectedPhotoModal) || 0;
-                downloadSinglePhoto(selectedPhotoModal, idx);
-              }}
-              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow transition-all cursor-pointer text-sm w-full"
+              onClick={() => downloadFullFrame(selectedFrameModal)}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow transition-all cursor-pointer text-sm w-full mt-2"
             >
-              <Download className="w-4 h-4" /> Baixar Foto
+              <Download className="w-4 h-4" /> Baixar Moldura Completa
             </button>
           </div>
         </div>
