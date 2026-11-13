@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 interface SessionRecord {
   id: string;
@@ -11,8 +13,8 @@ interface SessionRecord {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'register-session' | 'history' | 'booth'>('menu');
-  const [step, setStep] = useState<'countdown' | 'preview' | 'done'>('countdown');
+  const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
+  const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
   // Informações da Sessão Atual
   const [eventName, setEventName] = useState<string>('Evento Corporativo / Aniversário');
@@ -27,6 +29,8 @@ export default function App() {
     }
     return [];
   });
+
+  const [activeSessionDetail, setActiveSessionDetail] = useState<SessionRecord | null>(null);
 
   // Estados de confirmação de encerramento e confetes
   const [showEndModal, setShowEndModal] = useState<boolean>(false);
@@ -124,14 +128,19 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [screen, step, previewTimer, photoIndex, photos, eventName, clientName, sessionsHistory, isEnded]);
 
-  const startSequence = () => {
+  const openBooth = () => {
     setIsEnded(false);
     setShowEndModal(false);
     setPhotos([]);
     setPhotoIndex(1);
     setCountdown(5);
-    setStep('countdown'); // Inicia direto na contagem regressiva da primeira foto
+    setStep('idle'); // Inicia em idle para mostrar a câmera ativa e o botão "Começar"
     setScreen('booth');
+  };
+
+  const startSequence = () => {
+    setCountdown(5);
+    setStep('countdown');
   };
 
   const takePhoto = () => {
@@ -151,6 +160,20 @@ export default function App() {
     }
   };
 
+  // Função para baixar as fotos em ZIP
+  const downloadSessionZip = async (session: SessionRecord) => {
+    const zip = new JSZip();
+    const folder = zip.folder(`sessao-${session.eventName.replace(/\s+/g, '_')}`);
+
+    session.photos.forEach((photoDataUrl, index) => {
+      const base64Data = photoDataUrl.replace(/^data:image\/png;base64,/, "");
+      folder?.file(`foto_${index + 1}.png`, base64Data, { base64: true });
+    });
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, `sessao_${session.eventName.replace(/\s+/g, '_')}.zip`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
@@ -164,7 +187,7 @@ export default function App() {
           
           <div className="flex flex-col gap-3 w-full">
             <button
-              onClick={startSequence}
+              onClick={openBooth}
               className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all text-base cursor-pointer"
             >
               <Camera className="w-5 h-5" /> Iniciar Sessão
@@ -265,7 +288,7 @@ export default function App() {
               <p className="text-center text-slate-500 py-8 text-sm">Nenhum histórico registrado ainda no navegador.</p>
             ) : (
               sessionsHistory.map((s, idx) => (
-                <div key={s.id || idx} className="bg-slate-800 border border-slate-700/60 p-4 rounded-2xl flex flex-col gap-2">
+                <div key={s.id || idx} className="bg-slate-800 border border-slate-700/60 p-4 rounded-2xl flex flex-col gap-3">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-pink-400 font-semibold flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" /> {s.date}
@@ -274,12 +297,56 @@ export default function App() {
                       {s.photosCount} fotos
                     </span>
                   </div>
-                  <div className="text-base font-bold text-white">{s.eventName}</div>
-                  <div className="text-xs text-slate-400">Cliente: {s.clientName}</div>
+                  <div>
+                    <div className="text-base font-bold text-white">{s.eventName}</div>
+                    <div className="text-xs text-slate-400">Cliente: {s.clientName}</div>
+                  </div>
+                  {/* Botão Acessar Sessão */}
+                  <div className="flex justify-end pt-1 border-t border-slate-700/50">
+                    <button
+                      onClick={() => {
+                        setActiveSessionDetail(s);
+                        setScreen('session-detail');
+                      }}
+                      className="flex items-center gap-1.5 bg-pink-600 hover:bg-pink-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all cursor-pointer shadow"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Acessar sessão
+                    </button>
+                  </div>
                 </div>
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* TELA: DETALHE DA SESSÃO SELECIONADA DO HISTÓRICO */}
+      {screen === 'session-detail' && activeSessionDetail && (
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <button onClick={() => setScreen('history')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
+              <ArrowLeft className="w-4 h-4" /> Voltar ao Histórico
+            </button>
+            <h2 className="text-base font-bold truncate max-w-[180px]">{activeSessionDetail.eventName}</h2>
+            <div className="w-8"></div>
+          </div>
+
+          <p className="text-xs text-slate-400 text-center">Data: {activeSessionDetail.date} | Cliente: {activeSessionDetail.clientName}</p>
+
+          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center gap-3 max-h-64 overflow-y-auto">
+            <div className="w-32 flex flex-col gap-2 bg-slate-100 p-2 rounded shadow-inner">
+              {activeSessionDetail.photos.map((p, idx) => (
+                <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => downloadSessionZip(activeSessionDetail)}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all cursor-pointer text-sm"
+          >
+            <Download className="w-4 h-4" /> Baixar Sessão (.zip)
+          </button>
         </div>
       )}
 
@@ -398,6 +465,7 @@ export default function App() {
           </div>
 
           <p className="text-slate-400 mb-4 text-sm">
+            {step === 'idle' && "Câmera ativa. Clique em Começar para iniciar!"}
             {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
             {step === 'done' && !isEnded && "Sua tira ficou pronta!"}
@@ -405,6 +473,33 @@ export default function App() {
           </p>
 
           <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
+            {/* TELA IDLE: CÂMERA ATIVA E BOTÃO COMEÇAR LOGO ABAIXO */}
+            {step === 'idle' && !isEnded && (
+              <div className="w-full h-full relative flex flex-col items-center justify-between p-4 bg-black">
+                <div className="w-full flex-1 relative flex items-center justify-center overflow-hidden rounded-lg">
+                  <video
+                    autoPlay
+                    playsInline
+                    muted
+                    ref={(node) => {
+                      if (node && videoRef.current && videoRef.current.srcObject) {
+                        node.srcObject = videoRef.current.srcObject;
+                      }
+                    }}
+                    className="w-full h-full object-cover -scale-x-100"
+                  />
+                </div>
+                <div className="w-full pt-4">
+                  <button
+                    onClick={startSequence}
+                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg transition-all text-base cursor-pointer"
+                  >
+                    Começar
+                  </button>
+                </div>
+              </div>
+            )}
+
             {step === 'countdown' && !isEnded && (
               <>
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
@@ -475,7 +570,7 @@ export default function App() {
               <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
                 <Printer className="w-5 h-5" /> Imprimir Tira
               </button>
-              <button onClick={startSequence} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
+              <button onClick={openBooth} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
                 <RefreshCcw className="w-5 h-5" /> Refazer Sequência
               </button>
               <button 
