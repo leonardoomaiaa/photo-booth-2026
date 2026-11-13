@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, FileText, Volume2, Plus } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, FileText, Plus } from 'lucide-react';
 
 export default function App() {
   const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'booth'>('menu');
@@ -9,7 +9,6 @@ export default function App() {
   const [previewTimer, setPreviewTimer] = useState<number>(5);
   const [photos, setPhotos] = useState<string[]>([]);
   
-  // Estados para fontes estilo OBS
   const [selectedSourceType, setSelectedSourceType] = useState<string>('video-capture');
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -18,27 +17,36 @@ export default function App() {
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Listar todas as câmeras e placas de captura conectadas no computador
-  const fetchCameras = async () => {
+  // Função robusta para solicitar permissão e enumerar todas as câmeras e placas de captura
+  const loadDevices = async () => {
     try {
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      // 1. O navegador exige um getUserMedia prévio para liberar os nomes (labels) dos dispositivos
+      const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      
+      // Encerra o stream temporário para não prender a câmera
+      tempStream.getTracks().forEach(track => track.stop());
+
+      // 2. Lista todos os dispositivos conectados nas portas do computador
       const allDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = allDevices.filter(device => device.kind === 'videoinput');
+      
       setDevices(videoDevices);
       
-      if (videoDevices.length > 0 && !selectedDeviceId) {
-        setSelectedDeviceId(videoDevices[0].deviceId);
+      if (videoDevices.length > 0) {
+        setSelectedDeviceId(prev => prev || videoDevices[0].deviceId);
       }
     } catch (err) {
-      console.error("Erro ao listar webcams e placas de captura:", err);
+      console.error("Erro ao acessar permissões ou listar dispositivos de vídeo:", err);
+      alert("Por favor, permita o acesso à câmera no seu navegador para que as placas de captura e webcams sejam listadas.");
     }
   };
 
+  // Carrega os dispositivos ao iniciar a aplicação
   useEffect(() => {
-    fetchCameras();
+    loadDevices();
   }, []);
 
-  // Iniciar a webcam/placa selecionada no elemento de vídeo ativo
+  // Iniciar a webcam/placa selecionada no elemento de vídeo
   useEffect(() => {
     if (!selectedDeviceId) return;
 
@@ -58,7 +66,7 @@ export default function App() {
         }
       })
       .catch((err) => {
-        console.error("Erro ao acessar o dispositivo de vídeo selecionado:", err);
+        console.error("Erro ao iniciar o dispositivo selecionado:", err);
       });
   }, [selectedDeviceId, screen]);
 
@@ -146,7 +154,7 @@ export default function App() {
             <button
               onClick={() => {
                 setScreen('sources-modal');
-                fetchCameras();
+                loadDevices();
               }}
               className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-4 px-6 rounded-2xl border border-slate-700 transition-all text-lg"
             >
@@ -182,11 +190,10 @@ export default function App() {
 
                 {selectedSourceType === 'video-capture' && (
                   <div className="flex flex-col gap-4">
-                    {/* Botão tracejado que abre a janela de propriedades estilo OBS */}
                     <div 
-                      onClick={() => {
+                      onClick={async () => {
+                        await loadDevices();
                         setScreen('obs-properties');
-                        fetchCameras();
                       }}
                       className="border border-dashed border-slate-700 hover:border-pink-500 bg-[#121418] rounded-lg p-6 text-center cursor-pointer transition-colors flex items-center justify-center gap-2 group"
                     >
@@ -211,7 +218,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA 3: JANELA DE PROPRIEDADES ESTILO OBS (COM PREVIEW E SELECT DE CÂMERAS) */}
+      {/* TELA 3: JANELA DE PROPRIEDADES ESTILO OBS */}
       {screen === 'obs-properties' && (
         <div className="w-full max-w-2xl bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
           <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -220,7 +227,6 @@ export default function App() {
           </div>
 
           <div className="p-6 flex flex-col gap-6">
-            {/* Monitor de Pré-visualização ao vivo na janela de propriedades */}
             <div className="w-full h-56 bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center relative">
               <video
                 autoPlay
@@ -231,24 +237,34 @@ export default function App() {
               />
             </div>
 
-            {/* Seleção de Dispositivo (Câmeras e Placas de Captura) */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-slate-300">Dispositivo</label>
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-semibold text-slate-300">Dispositivo</label>
+                <button 
+                  onClick={loadDevices}
+                  className="text-xs text-pink-400 hover:underline"
+                >
+                  Atualizar lista
+                </button>
+              </div>
               <select
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
                 className="bg-[#121418] text-white rounded-lg p-3 outline-none border border-slate-700 text-sm w-full"
               >
-                {devices.map((device, idx) => (
-                  <option key={device.deviceId || idx} value={device.deviceId}>
-                    {device.label || `Dispositivo de Vídeo ${idx + 1}`}
-                  </option>
-                ))}
+                {devices.length === 0 ? (
+                  <option value="">Nenhum dispositivo encontrado (Permissão negada ou sem câmera)</option>
+                ) : (
+                  devices.map((device, idx) => (
+                    <option key={device.deviceId || idx} value={device.deviceId}>
+                      {device.label || `Câmera / Placa de Captura ${idx + 1}`}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           </div>
 
-          {/* Rodapé com botões OK / Cancelar */}
           <div className="bg-[#121418] px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
             <button
               onClick={() => setScreen('sources-modal')}
