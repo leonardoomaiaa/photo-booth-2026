@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check, Sparkles, Sliders } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check, Sparkles, Sliders, AlertCircle } from 'lucide-react';
 
 interface SessionRecord {
   id: string;
@@ -15,6 +15,7 @@ interface FrameItem {
   id: string;
   url: string;
   name: string;
+  dimensions: string;
 }
 
 export default function App() {
@@ -26,6 +27,10 @@ export default function App() {
   const [clientName, setClientName] = useState<string>('Cliente Padrão');
   const [sessionNotes, setSessionNotes] = useState<string>('Sessão padrão de cabine de fotos.');
   
+  // Tamanho de moldura selecionado pelo operador antes do upload
+  const [selectedFrameSize, setSelectedFrameSize] = useState<string>('1772 x 2480');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   // Lista de Molduras salvas e a Moldura Ativa
   const [framesList, setFramesList] = useState<FrameItem[]>(() => {
     const saved = localStorage.getItem('photo_booth_frames_list');
@@ -137,7 +142,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [screen, step, previewTimer, photoIndex, isEnded]);
 
-  // Função para salvar a sessão no histórico com a moldura utilizada
   const registerCompletedSession = (capturedPhotos: string[]) => {
     const newRecord: SessionRecord = {
       id: Date.now().toString(),
@@ -207,16 +211,31 @@ export default function App() {
     }
   };
 
+  // Validação estrita do tamanho da moldura em pixels antes de aceitar o arquivo
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        const result = uploadEvent.target?.result as string;
+    if (!file) return;
+
+    setUploadError(null);
+    const [targetWidth, targetHeight] = selectedFrameSize.split(' x ').map(Number);
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string;
+      const img = new Image();
+      img.src = result;
+      img.onload = () => {
+        if (img.width !== targetWidth || img.height !== targetHeight) {
+          setUploadError(`Arquivo rejeitado! A imagem tem ${img.width}x${img.height} pixels, mas o tamanho selecionado é ${selectedFrameSize} pixels.`);
+          return;
+        }
+
+        // Se o tamanho bater perfeitamente, aceita e cadastra a moldura
         const newFrame: FrameItem = {
           id: Date.now().toString(),
           url: result,
-          name: file.name
+          name: file.name,
+          dimensions: selectedFrameSize
         };
         const updatedFrames = [...framesList, newFrame];
         setFramesList(updatedFrames);
@@ -225,8 +244,8 @@ export default function App() {
         setActiveFrame(result);
         localStorage.setItem('photo_booth_active_frame', result);
       };
-      reader.readAsDataURL(file);
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const downloadFullFrame = (session: SessionRecord) => {
@@ -332,7 +351,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA 2: TELA DE APRESENTAÇÃO "TOQUE PARA COMEÇAR" COM BOTÃO DISCRETO DE AJUSTES */}
+      {/* TELA 2: TELA DE APRESENTAÇÃO "TOQUE PARA COMEÇAR" */}
       {screen === 'touch-start' && (
         <div 
           onClick={openBooth}
@@ -355,7 +374,7 @@ export default function App() {
             TOQUE PARA COMEÇAR
           </div>
 
-          {/* Botão discreto na margem inferior para o operador acessar configurações e histórico */}
+          {/* Botão discreto na margem inferior para o operador acessar configurações */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -535,9 +554,9 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: ESTILO OBS STUDIO (ADICIONAR FONTE) */}
+      {/* TELA: ESTILO OBS STUDIO (ADICIONAR FONTE COM SELEÇÃO DE TAMANHO DE MOLDURA) */}
       {screen === 'sources-modal' && (
-        <div className="w-full max-w-5xl h-[620px] bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
+        <div className="w-full max-w-5xl h-[650px] bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
           <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <span className="font-semibold text-sm">Adicionar fonte</span>
             <button onClick={() => setScreen('menu')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 cursor-pointer">✕</button>
@@ -584,14 +603,43 @@ export default function App() {
                 {selectedSourceType === 'image' && (
                   <>
                     <h2 className="text-base font-semibold text-white mb-1">Imagem (Moldura)</h2>
-                    <p className="text-xs text-slate-400 mb-6">Selecione a imagem de moldura que será aplicada na cabine.</p>
+                    <p className="text-xs text-slate-400 mb-4">Selecione o tamanho padrão desejado e faça upload da moldura compatível.</p>
                     
+                    {/* Seletor de Tamanhos de Moldura */}
+                    <div className="flex flex-col gap-2 mb-4">
+                      <label className="text-xs font-semibold text-slate-300">Tamanho da Moldura (Resolução Exata):</label>
+                      <select
+                        value={selectedFrameSize}
+                        onChange={(e) => {
+                          setSelectedFrameSize(e.target.value);
+                          setUploadError(null);
+                        }}
+                        className="bg-[#121418] text-white rounded-lg p-3 outline-none border border-slate-700 text-sm w-full cursor-pointer focus:border-pink-500"
+                      >
+                        <option value="1772 x 2480">1772 x 2480 pixels (Retrato / Tira Vertical)</option>
+                        <option value="1920 x 1080">1920 x 1080 pixels (Paisagem / Horizontal)</option>
+                        <option value="2480 x 1772">2480 x 1772 pixels (Paisagem Invertida)</option>
+                        <option value="1080 x 1920">1080 x 1920 pixels (Full HD Vertical)</option>
+                      </select>
+                    </div>
+
+                    {/* Alerta de Erro de Compatibilidade de Tamanho */}
+                    {uploadError && (
+                      <div className="bg-red-950/80 border border-red-700 text-red-200 px-4 py-3 rounded-xl text-xs mb-4 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                        <span>{uploadError}</span>
+                      </div>
+                    )}
+
                     <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border border-dashed border-slate-700 hover:border-pink-500 bg-[#121418] rounded-lg p-6 text-center cursor-pointer transition-colors flex items-center justify-center gap-2 group mb-4"
+                      onClick={() => {
+                        setUploadError(null);
+                        fileInputRef.current?.click();
+                      }}
+                      className="border border-dashed border-slate-700 hover:border-pink-500 bg-[#121418] rounded-lg p-5 text-center cursor-pointer transition-colors flex items-center justify-center gap-2 group mb-4"
                     >
                       <Plus className="w-5 h-5 text-slate-400 group-hover:text-pink-500" />
-                      <span className="text-sm text-slate-300 group-hover:text-white font-medium">+ Adicionar nova Imagem (Moldura)</span>
+                      <span className="text-sm text-slate-300 group-hover:text-white font-medium">+ Adicionar Imagem ({selectedFrameSize} px)</span>
                     </div>
 
                     <div className="flex flex-col gap-3">
@@ -605,6 +653,7 @@ export default function App() {
                               <img src={frame.url} alt={frame.name} className="w-12 h-16 object-cover rounded border border-slate-700" />
                               <div className="flex flex-col">
                                 <span className="text-xs font-semibold text-white">{frame.name}</span>
+                                <span className="text-[10px] text-slate-400">Tamanho: {frame.dimensions} px</span>
                                 {activeFrame === frame.url && (
                                   <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
                                     <Check className="w-3 h-3" /> Em uso atualmente
