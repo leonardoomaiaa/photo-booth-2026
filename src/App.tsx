@@ -210,7 +210,6 @@ export default function App() {
         setFramesList(updatedFrames);
         localStorage.setItem('photo_booth_frames_list', JSON.stringify(updatedFrames));
         
-        // Define automaticamente como ativa ao carregar
         setActiveFrame(result);
         localStorage.setItem('photo_booth_active_frame', result);
       };
@@ -227,7 +226,6 @@ export default function App() {
     canvas.width = 600;
     canvas.height = 1800;
 
-    // Fundo branco base
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -246,20 +244,17 @@ export default function App() {
       }
     };
 
-    // 1. Desenha as 3 fotos primeiro nos espaços reservados
     session.photos.forEach((photoUrl, idx) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = photoUrl;
       img.onload = () => {
-        // Coordenadas proporcionais para os 3 espaços da tira
         const yPos = 80 + idx * 560;
         ctx.drawImage(img, 50, yPos, 500, 500);
         checkComplete();
       };
     });
 
-    // 2. Desenha a moldura por cima das fotos (se houver)
     if (session.frameUrl) {
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
@@ -407,7 +402,6 @@ export default function App() {
                     <div className="text-base font-bold text-white">{s.eventName}</div>
                     <div className="text-xs text-slate-400">Cliente: {s.clientName}</div>
                   </div>
-                  {/* Botão Acessar Sessão */}
                   <div className="flex justify-end pt-1 border-t border-slate-700/50">
                     <button
                       onClick={() => {
@@ -444,13 +438,11 @@ export default function App() {
               onClick={() => setSelectedFrameModal(activeSessionDetail)}
               className="w-32 bg-white rounded shadow-2xl cursor-pointer border-2 border-slate-300 transition-transform hover:scale-105 relative group overflow-hidden aspect-[1/3]"
             >
-              {/* Fotos posicionadas ao fundo */}
               <div className="absolute inset-0 p-1 flex flex-col justify-around bg-slate-100">
                 {activeSessionDetail.photos.map((p, idx) => (
                   <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
                 ))}
               </div>
-              {/* Moldura por cima */}
               {activeSessionDetail.frameUrl && (
                 <img src={activeSessionDetail.frameUrl} alt="Moldura" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
               )}
@@ -478,7 +470,7 @@ export default function App() {
             <div className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 aspect-[1/3] max-h-[55vh]">
               <div className="absolute inset-0 p-2 flex flex-col justify-around bg-slate-100">
                 {selectedFrameModal.photos.map((p, idx) => (
-                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                  <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
                 ))}
               </div>
               {selectedFrameModal.frameUrl && (
@@ -505,7 +497,6 @@ export default function App() {
           </div>
 
           <div className="flex flex-1 overflow-hidden">
-            {/* Menu Lateral Esquerdo */}
             <div className="w-72 bg-[#121418] border-r border-slate-800 flex flex-col overflow-y-auto p-2 gap-1">
               <div className="text-xs font-bold text-slate-500 px-3 py-2 uppercase tracking-wider">Criado recentemente</div>
               
@@ -524,7 +515,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Painel Direito Dinâmico */}
             <div className="flex-1 bg-[#1a1d24] p-6 flex flex-col justify-between overflow-y-auto">
               <div>
                 {selectedSourceType === 'video-capture' && (
@@ -557,7 +547,6 @@ export default function App() {
                       <span className="text-sm text-slate-300 group-hover:text-white font-medium">+ Adicionar nova Imagem (Moldura)</span>
                     </div>
 
-                    {/* Lista de Molduras salvas com o botão "Usar" */}
                     <div className="flex flex-col gap-3">
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Molduras Disponíveis:</span>
                       {framesList.length === 0 ? (
@@ -660,7 +649,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO COM MOLDURA ATIVA) */}
+      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
           <div className="flex items-center justify-between w-full mb-2">
@@ -675,11 +664,13 @@ export default function App() {
             {step === 'idle' && "Câmera ativa. Clique em Começar para iniciar!"}
             {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
-            {step === 'done' && !isEnded && "Sua tira ficou pronta com a moldura!"}
+            {step === 'done' && !isEnded && "Sua tira ficou pronta!"}
             {isEnded && "Sessão encerrada com sucesso."}
           </p>
 
           <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
+            
+            {/* TELA IDLE: Câmera com a moldura guia por cima */}
             {step === 'idle' && !isEnded && (
               <div className="w-full h-full relative flex flex-col items-center justify-between p-4 bg-black">
                 <div className="w-full flex-1 relative flex items-center justify-center overflow-hidden rounded-lg">
@@ -694,9 +685,8 @@ export default function App() {
                     }}
                     className="w-full h-full object-cover -scale-x-100"
                   />
-                  {/* Sobrepõe prévia da moldura se houver */}
                   {activeFrame && (
-                    <img src={activeFrame} alt="Moldura ativa" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
                   )}
                 </div>
                 <div className="w-full pt-4">
@@ -710,6 +700,7 @@ export default function App() {
               </div>
             )}
 
+            {/* CONTAGEM REGRESSIVA: Com a moldura guia por cima */}
             {step === 'countdown' && !isEnded && (
               <>
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
@@ -728,17 +719,18 @@ export default function App() {
                     className="w-full h-full object-cover -scale-x-100"
                   />
                   {activeFrame && (
-                    <img src={activeFrame} alt="Moldura ativa" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
                   )}
                 </div>
               </>
             )}
 
+            {/* PREVIEW DA FOTO TIRADA: Com a moldura guia por cima */}
             {step === 'preview' && photos.length > 0 && !isEnded && (
               <div className="w-full h-full relative flex items-center justify-center bg-black">
                 <img src={photos[photos.length - 1]} alt="Foto capturada" className="w-full h-full object-cover" />
                 {activeFrame && (
-                  <img src={activeFrame} alt="Moldura ativa" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                  <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
                 )}
                 <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-sm font-semibold text-pink-400">
                   Próxima em {previewTimer}s
@@ -746,9 +738,9 @@ export default function App() {
               </div>
             )}
 
-            {/* TELA FINAL COM A MOLDURA E AS 3 FOTOS POSICIONADAS */}
+            {/* TELA FINAL: Apenas ao final as 3 fotos aparecem encaixadas dentro dos quadrados da moldura */}
             {step === 'done' && !isEnded && (
-              <div className="w-full h-full p-4 bg-white flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="w-full h-full bg-white flex flex-col items-center justify-center relative overflow-hidden">
                 <div className="relative w-36 aspect-[1/3] bg-slate-100 rounded shadow-inner overflow-hidden flex flex-col justify-around p-1 border border-slate-300">
                   {photos.map((p, idx) => (
                     <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
