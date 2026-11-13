@@ -11,13 +11,18 @@ interface SessionRecord {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
+  const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
   // Informações da Sessão Atual
   const [eventName, setEventName] = useState<string>('Evento Corporativo / Aniversário');
   const [clientName, setClientName] = useState<string>('Cliente Padrão');
   const [sessionNotes, setSessionNotes] = useState<string>('Sessão padrão de cabine de fotos.');
+  
+  // Moldura personalizada da sessão
+  const [customFrame, setCustomFrame] = useState<string | null>(() => {
+    return localStorage.getItem('photo_booth_custom_frame') || null;
+  });
   
   // Histórico salvo no navegador de forma segura
   const [sessionsHistory, setSessionsHistory] = useState<SessionRecord[]>(() => {
@@ -47,6 +52,7 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadDevices = async () => {
     try {
@@ -172,17 +178,30 @@ export default function App() {
     }
   };
 
+  // Manipular upload da imagem de moldura do computador
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const result = uploadEvent.target?.result as string;
+        setCustomFrame(result);
+        localStorage.setItem('photo_booth_custom_frame', result);
+        setScreen('image-properties');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Função para gerar e baixar a moldura completa combinada
   const downloadFullFrame = (session: SessionRecord) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Dimensões da tira/moldura
     canvas.width = 400;
     canvas.height = 1200;
 
-    // Fundo branco da moldura
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -198,13 +217,11 @@ export default function App() {
         loadedCount++;
 
         if (loadedCount === session.photos.length) {
-          // Desenha as 3 fotos na moldura verticalmente
           imageElements.forEach((image, i) => {
             const yPos = 30 + i * 380;
             ctx.drawImage(image, 25, yPos, 350, 350);
           });
 
-          // Baixa o arquivo resultante
           const link = document.createElement('a');
           link.href = canvas.toDataURL('image/png');
           link.download = `moldura_${session.eventName.replace(/\s+/g, '_')}_${Date.now()}.png`;
@@ -220,6 +237,13 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="hidden" />
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleImageUpload} 
+        accept="image/*" 
+        className="hidden" 
+      />
 
       {/* TELA 1: MENU INICIAL */}
       {screen === 'menu' && (
@@ -376,7 +400,6 @@ export default function App() {
           <p className="text-xs text-slate-400 text-center">Clique na moldura abaixo para ampliar e baixar:</p>
 
           <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center overflow-y-auto max-h-[55vh]">
-            {/* Moldura clicável contendo todas as fotos */}
             <div 
               onClick={() => setSelectedFrameModal(activeSessionDetail)}
               className="w-36 bg-white p-2 rounded shadow-2xl cursor-pointer border-2 border-slate-300 flex flex-col gap-2 transition-transform hover:scale-105 relative group"
@@ -405,7 +428,6 @@ export default function App() {
 
             <h3 className="text-base font-bold text-white">Moldura Completa</h3>
 
-            {/* Moldura expandida em tela cheia */}
             <div className="bg-white p-3 rounded-2xl shadow-2xl w-48 flex flex-col gap-3 border-4 border-slate-300 max-h-[55vh] overflow-y-auto">
               {selectedFrameModal.photos.map((p, idx) => (
                 <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded pointer-events-none" />
@@ -431,23 +453,32 @@ export default function App() {
           </div>
 
           <div className="flex flex-1 overflow-hidden">
+            {/* Menu Lateral Esquerdo */}
             <div className="w-72 bg-[#121418] border-r border-slate-800 flex flex-col overflow-y-auto p-2 gap-1">
               <div className="text-xs font-bold text-slate-500 px-3 py-2 uppercase tracking-wider">Criado recentemente</div>
-              <button onClick={() => setSelectedSourceType('video-capture')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors cursor-pointer ${selectedSourceType === 'video-capture' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}>
+              
+              <button 
+                onClick={() => setSelectedSourceType('video-capture')} 
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors cursor-pointer ${selectedSourceType === 'video-capture' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}
+              >
                 <Video className="w-4 h-4 text-pink-500" /> Dispositivo de captura de vídeo
               </button>
-              <button onClick={() => setSelectedSourceType('image')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors cursor-pointer ${selectedSourceType === 'image' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}>
+
+              <button 
+                onClick={() => setSelectedSourceType('image')} 
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors cursor-pointer ${selectedSourceType === 'image' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}
+              >
                 <ImageIcon className="w-4 h-4 text-blue-400" /> Imagem (Moldura)
               </button>
             </div>
 
+            {/* Painel Direito Dinâmico */}
             <div className="flex-1 bg-[#1a1d24] p-6 flex flex-col justify-between overflow-y-auto">
               <div>
-                <h2 className="text-base font-semibold text-white mb-1">Dispositivo de captura de vídeo</h2>
-                <p className="text-xs text-slate-400 mb-6">Selecione quais fontes serão adicionadas à sua cena atual.</p>
-
                 {selectedSourceType === 'video-capture' && (
-                  <div className="flex flex-col gap-4">
+                  <>
+                    <h2 className="text-base font-semibold text-white mb-1">Dispositivo de captura de vídeo</h2>
+                    <p className="text-xs text-slate-400 mb-6">Selecione quais fontes serão adicionadas à sua cena atual.</p>
                     <div 
                       onClick={async () => {
                         await loadDevices();
@@ -458,7 +489,27 @@ export default function App() {
                       <Plus className="w-5 h-5 text-slate-400 group-hover:text-pink-500" />
                       <span className="text-sm text-slate-300 group-hover:text-white font-medium">+ Adicionar novo Dispositivo de captura de vídeo</span>
                     </div>
-                  </div>
+                  </>
+                )}
+
+                {selectedSourceType === 'image' && (
+                  <>
+                    <h2 className="text-base font-semibold text-white mb-1">Imagem (Moldura)</h2>
+                    <p className="text-xs text-slate-400 mb-6">Selecione a imagem de moldura que será aplicada na cabine.</p>
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border border-dashed border-slate-700 hover:border-pink-500 bg-[#121418] rounded-lg p-6 text-center cursor-pointer transition-colors flex items-center justify-center gap-2 group"
+                    >
+                      <Plus className="w-5 h-5 text-slate-400 group-hover:text-pink-500" />
+                      <span className="text-sm text-slate-300 group-hover:text-white font-medium">+ Adicionar nova Imagem (Moldura)</span>
+                    </div>
+                    {customFrame && (
+                      <div className="mt-4 flex items-center gap-3 bg-[#121418] p-3 rounded-lg border border-slate-800">
+                        <img src={customFrame} alt="Moldura atual" className="w-12 h-12 object-cover rounded" />
+                        <span className="text-xs text-emerald-400 font-medium">Moldura carregada com sucesso!</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -476,7 +527,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: JANELA DE PROPRIEDADES ESTILO OBS */}
+      {/* TELA: JANELA DE PROPRIEDADES DE VÍDEO ESTILO OBS */}
       {screen === 'obs-properties' && (
         <div className="w-full max-w-2xl bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
           <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -521,6 +572,38 @@ export default function App() {
           <div className="bg-[#121418] px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
             <button onClick={() => setScreen('sources-modal')} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-5 py-2 rounded-lg transition-all cursor-pointer">Cancelar</button>
             <button onClick={() => setScreen('menu')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all cursor-pointer">OK</button>
+          </div>
+        </div>
+      )}
+
+      {/* TELA: JANELA DE PROPRIEDADES DE IMAGEM ESTILO OBS */}
+      {screen === 'image-properties' && (
+        <div className="w-full max-w-2xl bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
+          <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <span className="font-semibold text-sm">Propriedades de 'Imagem (Moldura)'</span>
+            <button onClick={() => setScreen('sources-modal')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 cursor-pointer">✕</button>
+          </div>
+
+          <div className="p-6 flex flex-col gap-6 items-center">
+            <div className="w-48 h-64 bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center relative">
+              {customFrame ? (
+                <img src={customFrame} alt="Pré-visualização da moldura" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs text-slate-500">Nenhuma imagem carregada</span>
+              )}
+            </div>
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm px-6 py-2.5 rounded-lg border border-slate-700 transition-all cursor-pointer"
+            >
+              Escolher Outra Imagem...
+            </button>
+          </div>
+
+          <div className="bg-[#121418] px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
+            <button onClick={() => setScreen('sources-modal')} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-5 py-2 rounded-lg transition-all cursor-pointer">Cancelar</button>
+            <button onClick={() => setScreen('sources-modal')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all cursor-pointer">OK</button>
           </div>
         </div>
       )}
