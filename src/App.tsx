@@ -106,7 +106,7 @@ export default function App() {
 
   // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (screen === 'booth' && step === 'countdown' && !isEnded) {
       if (countdown > 0) {
         timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -119,7 +119,7 @@ export default function App() {
 
   // Lógica do Preview da foto tirada no monitor (5 segundos)
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (screen === 'booth' && step === 'preview' && !isEnded) {
       if (previewTimer > 0) {
         timer = setTimeout(() => setPreviewTimer(previewTimer - 1), 1000);
