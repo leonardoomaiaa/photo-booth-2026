@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye } from 'lucide-react';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X } from 'lucide-react';
 
 interface SessionRecord {
   id: string;
@@ -31,6 +29,7 @@ export default function App() {
   });
 
   const [activeSessionDetail, setActiveSessionDetail] = useState<SessionRecord | null>(null);
+  const [selectedPhotoModal, setSelectedPhotoModal] = useState<string | null>(null);
 
   // Estados de confirmação de encerramento e confetes
   const [showEndModal, setShowEndModal] = useState<boolean>(false);
@@ -134,7 +133,7 @@ export default function App() {
     setPhotos([]);
     setPhotoIndex(1);
     setCountdown(5);
-    setStep('idle'); // Inicia em idle para mostrar a câmera ativa e o botão "Começar"
+    setStep('idle');
     setScreen('booth');
   };
 
@@ -160,18 +159,14 @@ export default function App() {
     }
   };
 
-  // Função para baixar as fotos em ZIP
-  const downloadSessionZip = async (session: SessionRecord) => {
-    const zip = new JSZip();
-    const folder = zip.folder(`sessao-${session.eventName.replace(/\s+/g, '_')}`);
-
-    session.photos.forEach((photoDataUrl, index) => {
-      const base64Data = photoDataUrl.replace(/^data:image\/png;base64,/, "");
-      folder?.file(`foto_${index + 1}.png`, base64Data, { base64: true });
-    });
-
-    const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, `sessao_${session.eventName.replace(/\s+/g, '_')}.zip`);
+  // Função para baixar uma foto individual
+  const downloadSinglePhoto = (photoUrl: string, index: number) => {
+    const link = document.createElement('a');
+    link.href = photoUrl;
+    link.download = `foto_${index + 1}_${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -320,33 +315,65 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: DETALHE DA SESSÃO SELECIONADA DO HISTÓRICO */}
+      {/* TELA: DETALHE DA SESSÃO COM FOTOS EXPANSÍVEIS */}
       {screen === 'session-detail' && activeSessionDetail && (
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4 max-h-[85vh]">
           <div className="flex items-center justify-between">
             <button onClick={() => setScreen('history')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
-              <ArrowLeft className="w-4 h-4" /> Voltar ao Histórico
+              <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
-            <h2 className="text-base font-bold truncate max-w-[180px]">{activeSessionDetail.eventName}</h2>
+            <h2 className="text-sm font-bold truncate max-w-[180px]">{activeSessionDetail.eventName}</h2>
             <div className="w-8"></div>
           </div>
 
-          <p className="text-xs text-slate-400 text-center">Data: {activeSessionDetail.date} | Cliente: {activeSessionDetail.clientName}</p>
+          <p className="text-xs text-slate-400 text-center">Clique em qualquer foto para ampliar e baixar:</p>
 
-          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center gap-3 max-h-64 overflow-y-auto">
-            <div className="w-32 flex flex-col gap-2 bg-slate-100 p-2 rounded shadow-inner">
+          <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center gap-3 overflow-y-auto max-h-[50vh]">
+            <div className="w-36 flex flex-col gap-3 bg-slate-100 p-2 rounded shadow-inner">
               {activeSessionDetail.photos.map((p, idx) => (
-                <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                <div 
+                  key={idx} 
+                  onClick={() => setSelectedPhotoModal(p)}
+                  className="relative group cursor-pointer overflow-hidden rounded border border-slate-300 transition-all hover:scale-[1.02]"
+                >
+                  <img src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
+                    <Eye className="w-4 h-4" /> Ampliar
+                  </div>
+                </div>
               ))}
             </div>
           </div>
+        </div>
+      )}
 
-          <button
-            onClick={() => downloadSessionZip(activeSessionDetail)}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all cursor-pointer text-sm"
-          >
-            <Download className="w-4 h-4" /> Baixar Sessão (.zip)
-          </button>
+      {/* MODAL DE AMPLIAÇÃO DA FOTO (LIGHTBOX COM DOWNLOAD) */}
+      {selectedPhotoModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl shadow-2xl max-w-lg w-full flex flex-col items-center gap-4 relative animate-fade-in">
+            <button
+              onClick={() => setSelectedPhotoModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-base font-bold text-white">Visualização da Foto</h3>
+
+            <div className="w-full bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center max-h-[60vh]">
+              <img src={selectedPhotoModal} alt="Foto ampliada" className="max-h-[55vh] object-contain rounded-lg" />
+            </div>
+
+            <button
+              onClick={() => {
+                const idx = activeSessionDetail?.photos.findIndex(p => p === selectedPhotoModal) || 0;
+                downloadSinglePhoto(selectedPhotoModal, idx);
+              }}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow transition-all cursor-pointer text-sm w-full"
+            >
+              <Download className="w-4 h-4" /> Baixar Foto
+            </button>
+          </div>
         </div>
       )}
 
@@ -473,7 +500,6 @@ export default function App() {
           </p>
 
           <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
-            {/* TELA IDLE: CÂMERA ATIVA E BOTÃO COMEÇAR LOGO ABAIXO */}
             {step === 'idle' && !isEnded && (
               <div className="w-full h-full relative flex flex-col items-center justify-between p-4 bg-black">
                 <div className="w-full flex-1 relative flex items-center justify-center overflow-hidden rounded-lg">
