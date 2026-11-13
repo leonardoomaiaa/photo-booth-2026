@@ -247,7 +247,6 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // Função adaptativa para desenhar as fotos e a moldura respeitando a resolução exata selecionada
   const downloadFullFrame = (sessionPhotos: string[], frameUrl?: string | null, dimensions?: string) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -277,7 +276,6 @@ export default function App() {
       }
     };
 
-    // Posicionamento inteligente baseado no formato (Vertical vs Horizontal)
     const isVertical = canvasHeight > canvasWidth;
 
     sessionPhotos.forEach((photoUrl, idx) => {
@@ -288,7 +286,6 @@ export default function App() {
         let pWidth, pHeight, pX, pY;
 
         if (isVertical) {
-          // Layout Vertical (ex: 1772x2480 ou 1080x1920)
           pWidth = Math.round(canvasWidth * 0.82);
           pHeight = Math.round(canvasHeight * 0.27);
           pX = Math.round((canvasWidth - pWidth) / 2);
@@ -296,7 +293,6 @@ export default function App() {
           const startY = Math.round(canvasHeight * 0.06);
           pY = startY + idx * (pHeight + spacing);
         } else {
-          // Layout Horizontal / Paisagem (ex: 1920x1080 ou 2480x1772) - Fotos lado a lado ou em coluna lateral
           pWidth = Math.round(canvasWidth * 0.28);
           pHeight = Math.round(canvasHeight * 0.82);
           pY = Math.round((canvasHeight - pHeight) / 2);
@@ -321,6 +317,12 @@ export default function App() {
     } else {
       checkComplete();
     }
+  };
+
+  // Helper para calcular a proporção exata para o preview na tela
+  const getAspectRatioStyle = (dimStr?: string) => {
+    const [w, h] = (dimStr || activeFrameDimensions || '1772 x 2480').split(' x ').map(Number);
+    return { aspectRatio: `${w} / ${h}` };
   };
 
   return (
@@ -527,11 +529,12 @@ export default function App() {
           <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center overflow-y-auto max-h-[55vh]">
             <div 
               onClick={() => setSelectedFrameModal(activeSessionDetail)}
-              className="w-32 bg-white rounded shadow-2xl cursor-pointer border-2 border-slate-300 transition-transform hover:scale-105 relative group overflow-hidden aspect-[1/3]"
+              style={getAspectRatioStyle(activeSessionDetail.frameDimensions)}
+              className="w-32 bg-white rounded shadow-2xl cursor-pointer border-2 border-slate-300 transition-transform hover:scale-105 relative group overflow-hidden"
             >
               <div className="absolute inset-0 p-1 flex flex-col justify-around bg-slate-100">
                 {activeSessionDetail.photos.map((p, idx) => (
-                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover rounded" />
                 ))}
               </div>
               {activeSessionDetail.frameUrl && (
@@ -558,10 +561,13 @@ export default function App() {
 
             <h3 className="text-base font-bold text-white">Moldura Completa ({selectedFrameModal.frameDimensions || '1772 x 2480'} px)</h3>
 
-            <div className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 aspect-[1/3] max-h-[55vh]">
+            <div 
+              style={getAspectRatioStyle(selectedFrameModal.frameDimensions)}
+              className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 max-h-[55vh]"
+            >
               <div className="absolute inset-0 p-2 flex flex-col justify-around bg-slate-100">
                 {selectedFrameModal.photos.map((p, idx) => (
-                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover rounded" />
                 ))}
               </div>
               {selectedFrameModal.frameUrl && (
@@ -871,14 +877,20 @@ export default function App() {
               </div>
             )}
 
+            {/* TELA FINAL: PREVIEW FIEL E PROPORCIONAL À RESOLUÇÃO ESCOLHIDA */}
             {step === 'done' && !isEnded && (
-              <div className="w-full h-full bg-white flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="relative w-36 aspect-[1/3] bg-slate-100 rounded shadow-inner overflow-hidden flex flex-col justify-around p-1 border border-slate-300">
-                  {photos.map((p, idx) => (
-                    <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
-                  ))}
+              <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden p-2">
+                <div 
+                  style={getAspectRatioStyle(activeFrameDimensions)}
+                  className="relative w-40 bg-white rounded shadow-2xl overflow-hidden flex flex-col justify-around border border-slate-300"
+                >
+                  <div className="absolute inset-0 p-1 flex flex-col justify-around bg-slate-100">
+                    {photos.map((p, idx) => (
+                      <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full h-full object-cover rounded" />
+                    ))}
+                  </div>
                   {activeFrame && (
-                    <img src={activeFrame} alt="Moldura" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                    <img src={activeFrame} alt="Moldura Final" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
                   )}
                 </div>
               </div>
