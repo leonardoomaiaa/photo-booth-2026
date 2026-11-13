@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, FileText, Plus, Calendar, Clock, History } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle } from 'lucide-react';
 
 interface SessionRecord {
   id: string;
@@ -19,17 +19,18 @@ export default function App() {
   const [clientName, setClientName] = useState<string>('Cliente Padrão');
   const [sessionNotes, setSessionNotes] = useState<string>('Sessão padrão de cabine de fotos.');
   
-  // Histórico de sessões salvas
-  const [sessionsHistory, setSessionsHistory] = useState<SessionRecord[]>([
-    {
-      id: '1',
-      date: '10/11/2026 - 15:30',
-      eventName: 'Casamento Exemplo',
-      clientName: 'Ana & Carlos',
-      photosCount: 3,
-      photos: []
+  // Histórico salvo no navegador (localStorage)
+  const [sessionsHistory, setSessionsHistory] = useState<SessionRecord[]>(() => {
+    const saved = localStorage.getItem('photo_booth_history');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return []; }
     }
-  ]);
+    return [];
+  });
+
+  // Estados de confirmação de encerramento e confetes
+  const [showEndModal, setShowEndModal] = useState<boolean>(false);
+  const [isEnded, setIsEnded] = useState<boolean>(false);
 
   const [photoIndex, setPhotoIndex] = useState<number>(1);
   const [countdown, setCountdown] = useState<number>(5);
@@ -103,23 +104,27 @@ export default function App() {
           setStep('countdown');
         } else {
           setStep('done');
-          // Salvar no histórico ao concluir a sessão
+          // Salvar automaticamente no LocalStorage do navegador
           const newRecord: SessionRecord = {
             id: Date.now().toString(),
             date: new Date().toLocaleString('pt-BR'),
             eventName: eventName,
             clientName: clientName,
-            photosCount: photos.length,
+            photosCount: 3,
             photos: photos
           };
-          setSessionsHistory(prev => [newRecord, ...prev]);
+          const updatedHistory = [newRecord, ...sessionsHistory];
+          setSessionsHistory(updatedHistory);
+          localStorage.setItem('photo_booth_history', JSON.stringify(updatedHistory));
         }
       }
     }
     return () => clearTimeout(timer);
-  }, [screen, step, previewTimer, photoIndex, photos, eventName, clientName]);
+  }, [screen, step, previewTimer, photoIndex, photos, eventName, clientName, sessionsHistory]);
 
   const startSequence = () => {
+    setIsEnded(false);
+    setShowEndModal(false);
     setPhotos([]);
     setPhotoIndex(1);
     setCountdown(5);
@@ -145,7 +150,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="hidden" />
 
@@ -255,7 +260,7 @@ export default function App() {
 
           <div className="flex flex-col gap-3 overflow-y-auto pr-1">
             {sessionsHistory.length === 0 ? (
-              <p className="text-center text-slate-500 py-8 text-sm">Nenhum histórico registrado ainda.</p>
+              <p className="text-center text-slate-500 py-8 text-sm">Nenhum histórico registrado ainda no navegador.</p>
             ) : (
               sessionsHistory.map((s, idx) => (
                 <div key={s.id || idx} className="bg-slate-800 border border-slate-700/60 p-4 rounded-2xl flex flex-col gap-2">
@@ -394,20 +399,21 @@ export default function App() {
             {step === 'idle' && `Cliente: ${clientName} - Pronto para 3 fotos!`}
             {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
-            {step === 'done' && "Sua tira ficou pronta e foi salva no histórico!"}
+            {step === 'done' && !isEnded && "Sua tira ficou pronta!"}
+            {isEnded && "Sessão encerrada com sucesso."}
           </p>
 
           <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
-            {step === 'idle' && (
+            {step === 'idle' && !isEnded && (
               <div className="text-center p-6">
                 <Camera className="w-16 h-16 mx-auto mb-4 text-pink-500 animate-pulse" />
-                <button onClick={startBoothAction} className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all">
+                <button onClick={startSequence} className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all">
                   Começar Sequência
                 </button>
               </div>
             )}
 
-            {step === 'countdown' && (
+            {step === 'countdown' && !isEnded && (
               <>
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
                   <span className="text-9xl font-black text-pink-500 animate-bounce">{countdown}</span>
@@ -428,7 +434,7 @@ export default function App() {
               </>
             )}
 
-            {step === 'preview' && photos.length > 0 && (
+            {step === 'preview' && photos.length > 0 && !isEnded && (
               <div className="w-full h-full relative flex items-center justify-center bg-black">
                 <img src={photos[photos.length - 1]} alt="Foto capturada" className="w-full h-full object-cover" />
                 <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-sm font-semibold text-pink-400">
@@ -437,7 +443,7 @@ export default function App() {
               </div>
             )}
 
-            {step === 'done' && (
+            {step === 'done' && !isEnded && (
               <div className="w-full h-full p-4 bg-white flex flex-col items-center justify-around">
                 <div className="w-32 h-full flex flex-col gap-2 bg-slate-100 p-2 border border-slate-300 rounded shadow-inner overflow-y-auto">
                   {photos.map((p, idx) => (
@@ -446,9 +452,34 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* ESTADO FINAL: FIM COM CONFETES */}
+            {isEnded && (
+              <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center z-20 animate-fade-in">
+                {/* Efeito de Confetes Animados */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  <div className="absolute w-3 h-3 bg-pink-500 rounded-full animate-ping top-1/4 left-1/4"></div>
+                  <div className="absolute w-4 h-4 bg-amber-400 rounded-sm animate-bounce top-1/3 right-1/4"></div>
+                  <div className="absolute w-3 h-3 bg-emerald-400 rounded-full animate-pulse bottom-1/3 left-1/3"></div>
+                  <div className="absolute w-5 h-2 bg-blue-500 rounded animate-spin top-1/2 right-1/3"></div>
+                  <div className="absolute w-3 h-3 bg-purple-500 rounded-sm animate-ping bottom-1/4 right-1/5"></div>
+                  <div className="absolute w-4 h-4 bg-pink-400 rounded-full animate-bounce top-1/6 left-1/2"></div>
+                </div>
+
+                <span className="text-7xl font-black text-pink-500 tracking-wider mb-4 animate-bounce z-10">FIM</span>
+                <p className="text-slate-400 text-sm z-10 mb-6">Sessão finalizada com sucesso!</p>
+                <button
+                  onClick={() => setScreen('menu')}
+                  className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg z-10 transition-all"
+                >
+                  Voltar ao Menu Principal
+                </button>
+              </div>
+            )}
           </div>
 
-          {step === 'done' && (
+          {/* BOTÕES DA TELA FINAL (IMPRIMIR / REFAZER / ENCERRAR SESSÃO) */}
+          {step === 'done' && !isEnded && (
             <div className="flex flex-col gap-3 w-full">
               <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow">
                 <Printer className="w-5 h-5" /> Imprimir Tira
@@ -456,8 +487,40 @@ export default function App() {
               <button onClick={startSequence} className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 font-bold py-3 px-6 rounded-xl shadow">
                 <RefreshCcw className="w-5 h-5" /> Refazer Sequência
               </button>
+              <button 
+                onClick={() => setShowEndModal(true)} 
+                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl shadow transition-all"
+              >
+                <XCircle className="w-5 h-5" /> Encerrar Sessão
+              </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE ENCERRAMENTO */}
+      {showEndModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-sm w-full text-center flex flex-col gap-6">
+            <h3 className="text-lg font-bold text-white">Deseja encerrar a sessão?</h3>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => {
+                  setShowEndModal(false);
+                  setIsEnded(true);
+                }}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow transition-all"
+              >
+                SIM
+              </button>
+              <button
+                onClick={() => setShowEndModal(false)}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl shadow transition-all"
+              >
+                NÃO
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
