@@ -18,8 +18,8 @@ interface FrameItem {
 }
 
 export default function App() {
-  // O app agora inicia na tela imersiva "Toque para Começar"
-  const [screen, setScreen] = useState<'touch-start' | 'menu' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('touch-start');
+  // Inicia na Tela 1: Painel de Configuração e Menu
+  const [screen, setScreen] = useState<'menu' | 'touch-start' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
   // Informações da Sessão Atual
@@ -52,9 +52,10 @@ export default function App() {
   const [activeSessionDetail, setActiveSessionDetail] = useState<SessionRecord | null>(null);
   const [selectedFrameModal, setSelectedFrameModal] = useState<SessionRecord | null>(null);
 
-  // Estados de confirmação de encerramento e confetes
+  // Estados de confirmação de encerramento e flash
   const [showEndModal, setShowEndModal] = useState<boolean>(false);
   const [isEnded, setIsEnded] = useState<boolean>(false);
+  const [flashActive, setFlashActive] = useState<boolean>(false);
 
   const [photoIndex, setPhotoIndex] = useState<number>(1);
   const [countdown, setCountdown] = useState<number>(5);
@@ -174,6 +175,10 @@ export default function App() {
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
+      // Dispara efeito de flash visual na tela
+      setFlashActive(true);
+      setTimeout(() => setFlashActive(false), 300);
+
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth || 640;
@@ -192,6 +197,18 @@ export default function App() {
         setPreviewTimer(5);
         setStep('preview');
       }
+    }
+  };
+
+  // Frases motivacionais dinâmicas de acordo com o segundo da contagem
+  const getCountdownMessage = (count: number) => {
+    switch (count) {
+      5: return "Arrumem o visual! ✨";
+      4: return "Sorriam para o espelho! 😁";
+      3: return "Quase lá... 📸";
+      2: return "Preparados?! 🚀";
+      1: return "VALENDO! 🔥";
+      default: return "Preparando...";
     }
   };
 
@@ -281,51 +298,15 @@ export default function App() {
         className="hidden" 
       />
 
-      {/* TELA INICIAL: TOQUE PARA COMEÇAR (EXIBIDA PRIMEIRO) */}
-      {screen === 'touch-start' && (
-        <div 
-          onClick={() => setScreen('menu')}
-          className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-pink-950 flex flex-col items-center justify-center cursor-pointer select-none z-30 p-6 text-center animate-fade-in"
-        >
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
-            <div className="absolute w-72 h-72 bg-pink-500 rounded-full blur-3xl -top-20 -left-20 animate-pulse"></div>
-            <div className="absolute w-96 h-96 bg-purple-600 rounded-full blur-3xl -bottom-20 -right-20 animate-pulse"></div>
-          </div>
-
-          <Sparkles className="w-16 h-16 text-pink-400 mb-6 animate-bounce" />
-          <h1 className="text-4xl md:text-6xl font-black tracking-widest text-white mb-3 drop-shadow-lg">
-            BEM-VINDO AO ESPELHO MÁGICO
-          </h1>
-          <p className="text-slate-300 text-lg md:text-xl font-medium mb-12 max-w-md">
-            {eventName}
-          </p>
-
-          <div className="bg-pink-600 hover:bg-pink-500 text-white font-black text-xl md:text-2xl px-10 py-5 rounded-3xl shadow-2xl transition-all transform hover:scale-105 active:scale-95 border-2 border-pink-400/50 animate-pulse">
-            TOQUE PARA COMEÇAR
-          </div>
-
-          <span className="absolute bottom-6 text-xs text-slate-500">
-            Toque em qualquer lugar da tela para abrir o painel
-          </span>
-        </div>
-      )}
-
-      {/* TELA DO PAINEL DA CABINE (MENU APÓS O TOQUE) */}
+      {/* TELA 1: PAINEL DE CONFIGURAÇÃO E MENU */}
       {screen === 'menu' && (
-        <div className="text-center flex flex-col items-center max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl">
-          <button 
-            onClick={() => setScreen('touch-start')}
-            className="self-start flex items-center gap-1 text-slate-400 hover:text-white text-xs mb-4 cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Voltar à Tela Inicial
-          </button>
-
-          <h1 className="text-3xl font-bold mb-2">PAINEL DA CABINE</h1>
-          <p className="text-slate-400 mb-6">Sessão Atual: <span className="text-pink-400 font-semibold">{eventName}</span></p>
+        <div className="text-center flex flex-col items-center max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl relative">
+          <h1 className="text-2xl font-black mb-1 tracking-wider text-white">PAINEL DA CABINE</h1>
+          <p className="text-slate-400 mb-6 text-sm">Sessão Atual: <span className="text-pink-400 font-semibold">{eventName}</span></p>
           
           <div className="flex flex-col gap-3 w-full">
             <button
-              onClick={openBooth}
+              onClick={() => setScreen('touch-start')}
               className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all text-base cursor-pointer"
             >
               <Camera className="w-5 h-5" /> Iniciar Sessão
@@ -355,6 +336,41 @@ export default function App() {
               <Settings className="w-5 h-5 text-blue-400" /> Inserir Fontes
             </button>
           </div>
+        </div>
+      )}
+
+      {/* TELA 2: TELA DE APRESENTAÇÃO "TOQUE PARA COMEÇAR" */}
+      {screen === 'touch-start' && (
+        <div 
+          onClick={openBooth}
+          className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-pink-950 flex flex-col items-center justify-center cursor-pointer select-none z-30 p-6 text-center animate-fade-in"
+        >
+          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+            <div className="absolute w-72 h-72 bg-pink-500 rounded-full blur-3xl -top-20 -left-20 animate-pulse"></div>
+            <div className="absolute w-96 h-96 bg-purple-600 rounded-full blur-3xl -bottom-20 -right-20 animate-pulse"></div>
+          </div>
+
+          <Sparkles className="w-16 h-16 text-pink-400 mb-6 animate-bounce" />
+          <h1 className="text-4xl md:text-6xl font-black tracking-widest text-white mb-3 drop-shadow-lg">
+            BEM-VINDO AO ESPELHO MÁGICO
+          </h1>
+          <p className="text-slate-300 text-lg md:text-xl font-medium mb-12 max-w-md">
+            {eventName}
+          </p>
+
+          <div className="bg-pink-600 hover:bg-pink-500 text-white font-black text-xl md:text-2xl px-10 py-5 rounded-3xl shadow-2xl transition-all transform hover:scale-105 active:scale-95 border-2 border-pink-400/50 animate-pulse">
+            TOQUE PARA COMEÇAR
+          </div>
+
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setScreen('menu');
+            }}
+            className="absolute bottom-6 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Voltar ao Painel de Configuração
+          </button>
         </div>
       )}
 
@@ -686,9 +702,14 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
+      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO COM ANIMAÇÃO E FLASH) */}
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
+          {/* Efeito de Flash na tela ao tirar a foto */}
+          {flashActive && (
+            <div className="absolute inset-0 bg-white z-50 animate-ping pointer-events-none"></div>
+          )}
+
           <div className="flex items-center justify-between w-full mb-2">
             <button 
               onClick={() => {
@@ -703,9 +724,9 @@ export default function App() {
             <div className="w-16"></div>
           </div>
 
-          <p className="text-slate-400 mb-4 text-sm">
+          <p className="text-slate-400 mb-4 text-sm font-medium">
             {step === 'idle' && "Câmera ativa. Clique em Começar para iniciar!"}
-            {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
+            {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
             {step === 'done' && !isEnded && "Sua tira ficou pronta!"}
             {isEnded && "Sessão encerrada com sucesso."}
@@ -729,7 +750,7 @@ export default function App() {
                     className="w-full h-full object-cover -scale-x-100"
                   />
                   {activeFrame && (
-                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
                   )}
                 </div>
                 <div className="w-full pt-4">
@@ -743,11 +764,16 @@ export default function App() {
               </div>
             )}
 
-            {/* CONTAGEM REGRESSIVA: Com a moldura guia por cima */}
+            {/* CONTAGEM REGRESSIVA: Com Animações Avançadas e Frases Dinâmicas */}
             {step === 'countdown' && !isEnded && (
               <>
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-                  <span className="text-9xl font-black text-pink-500 animate-bounce">{countdown}</span>
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs gap-3">
+                  <span className="text-2xl md:text-3xl font-bold text-pink-300 drop-shadow animate-pulse text-center px-4">
+                    {getCountdownMessage(countdown)}
+                  </span>
+                  <span className="text-9xl font-black text-pink-500 animate-bounce drop-shadow-2xl">
+                    {countdown}
+                  </span>
                 </div>
                 <div className="w-full h-full relative flex items-center justify-center bg-black">
                   <video
@@ -762,7 +788,7 @@ export default function App() {
                     className="w-full h-full object-cover -scale-x-100"
                   />
                   {activeFrame && (
-                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
                   )}
                 </div>
               </>
@@ -773,7 +799,7 @@ export default function App() {
               <div className="w-full h-full relative flex items-center justify-center bg-black">
                 <img src={photos[photos.length - 1]} alt="Foto capturada" className="w-full h-full object-cover" />
                 {activeFrame && (
-                  <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                  <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
                 )}
                 <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-sm font-semibold text-pink-400">
                   Próxima em {previewTimer}s
