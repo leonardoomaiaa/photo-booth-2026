@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check, Sparkles } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check, Sparkles, Sliders } from 'lucide-react';
 
 interface SessionRecord {
   id: string;
@@ -198,7 +198,6 @@ export default function App() {
     }
   };
 
-  // Retorna uma única frase clara e distinta para cada foto da sequência
   const getSessionMessage = (index: number) => {
     switch (index) {
       case 1: return "Arrumem o visual e preparem a pose! ✨";
@@ -303,7 +302,7 @@ export default function App() {
               onClick={() => setScreen('touch-start')}
               className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all text-base cursor-pointer"
             >
-              <Camera className="w-5 h-5" /> Iniciar Sessão
+              <Camera className="w-5 h-5" /> Ir para Tela Inicial (Espelho)
             </button>
 
             <button
@@ -333,7 +332,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA 2: TELA DE APRESENTAÇÃO "TOQUE PARA COMEÇAR" */}
+      {/* TELA 2: TELA DE APRESENTAÇÃO "TOQUE PARA COMEÇAR" COM BOTÃO DISCRETO DE AJUSTES */}
       {screen === 'touch-start' && (
         <div 
           onClick={openBooth}
@@ -356,14 +355,15 @@ export default function App() {
             TOQUE PARA COMEÇAR
           </div>
 
+          {/* Botão discreto na margem inferior para o operador acessar configurações e histórico */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
               setScreen('menu');
             }}
-            className="absolute bottom-6 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="absolute bottom-4 right-4 bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-white text-xs px-3 py-2 rounded-xl border border-slate-800 backdrop-blur-sm transition-all flex items-center gap-1.5 cursor-pointer z-40 shadow"
           >
-            Voltar ao Painel de Configuração
+            <Sliders className="w-3.5 h-3.5 text-pink-500" /> Configurações / Histórico
           </button>
         </div>
       )}
@@ -758,7 +758,6 @@ export default function App() {
 
             {step === 'countdown' && !isEnded && (
               <>
-                {/* Imagem da câmera escurecida e uma frase estática de cor clara */}
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-xs gap-4 p-4 text-center">
                   <span className="text-2xl md:text-3xl font-extrabold text-pink-200 drop-shadow-md tracking-wide px-2">
                     {getSessionMessage(photoIndex)}
