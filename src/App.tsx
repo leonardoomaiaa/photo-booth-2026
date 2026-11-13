@@ -175,7 +175,6 @@ export default function App() {
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
-      // Dispara efeito de flash visual na tela
       setFlashActive(true);
       setTimeout(() => setFlashActive(false), 300);
 
@@ -200,19 +199,17 @@ export default function App() {
     }
   };
 
-  // Frases motivacionais dinâmicas de acordo com o segundo da contagem
   const getCountdownMessage = (count: number) => {
     switch (count) {
-      5: return "Arrumem o visual! ✨";
-      4: return "Sorriam para o espelho! 😁";
-      3: return "Quase lá... 📸";
-      2: return "Preparados?! 🚀";
-      1: return "VALENDO! 🔥";
+      case 5: return "Arrumem o visual! ✨";
+      case 4: return "Sorriam para o espelho! 😁";
+      case 3: return "Quase lá... 📸";
+      case 2: return "Preparados?! 🚀";
+      case 1: return "VALENDO! 🔥";
       default: return "Preparando...";
     }
   };
 
-  // Manipular upload da imagem de moldura do computador
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -235,7 +232,6 @@ export default function App() {
     }
   };
 
-  // Função para gerar e baixar a moldura completa combinada com as 3 fotos
   const downloadFullFrame = (session: SessionRecord) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -702,10 +698,9 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO COM ANIMAÇÃO E FLASH) */}
+      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
-          {/* Efeito de Flash na tela ao tirar a foto */}
           {flashActive && (
             <div className="absolute inset-0 bg-white z-50 animate-ping pointer-events-none"></div>
           )}
@@ -734,7 +729,6 @@ export default function App() {
 
           <div className="relative w-full bg-slate-900 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center aspect-[3/4] mb-6">
             
-            {/* TELA IDLE: Câmera com a moldura guia por cima */}
             {step === 'idle' && !isEnded && (
               <div className="w-full h-full relative flex flex-col items-center justify-between p-4 bg-black">
                 <div className="w-full flex-1 relative flex items-center justify-center overflow-hidden rounded-lg">
@@ -764,7 +758,6 @@ export default function App() {
               </div>
             )}
 
-            {/* CONTAGEM REGRESSIVA: Com Animações Avançadas e Frases Dinâmicas */}
             {step === 'countdown' && !isEnded && (
               <>
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs gap-3">
@@ -794,7 +787,6 @@ export default function App() {
               </>
             )}
 
-            {/* PREVIEW DA FOTO TIRADA: Com a moldura guia por cima */}
             {step === 'preview' && photos.length > 0 && !isEnded && (
               <div className="w-full h-full relative flex items-center justify-center bg-black">
                 <img src={photos[photos.length - 1]} alt="Foto capturada" className="w-full h-full object-cover" />
@@ -807,7 +799,6 @@ export default function App() {
               </div>
             )}
 
-            {/* TELA FINAL: Apenas ao final as 3 fotos aparecem encaixadas dentro dos quadrados da moldura */}
             {step === 'done' && !isEnded && (
               <div className="w-full h-full bg-white flex flex-col items-center justify-center relative overflow-hidden">
                 <div className="relative w-36 aspect-[1/3] bg-slate-100 rounded shadow-inner overflow-hidden flex flex-col justify-around p-1 border border-slate-300">
@@ -821,7 +812,6 @@ export default function App() {
               </div>
             )}
 
-            {/* ESTADO FINAL: FIM COM CONFETES */}
             {isEnded && (
               <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center z-20 animate-fade-in">
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -845,7 +835,6 @@ export default function App() {
             )}
           </div>
 
-          {/* BOTÕES DA TELA FINAL (IMPRIMIR / REFAZER / ENCERRAR SESSÃO) */}
           {step === 'done' && !isEnded && (
             <div className="flex flex-col gap-3 w-full">
               <button onClick={() => window.print()} className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold py-3 px-6 rounded-xl shadow cursor-pointer">
@@ -865,7 +854,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE ENCERRAMENTO */}
       {showEndModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-sm w-full text-center flex flex-col gap-6">
