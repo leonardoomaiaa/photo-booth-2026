@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check, Sparkles } from 'lucide-react';
 
 interface SessionRecord {
   id: string;
@@ -18,7 +18,8 @@ interface FrameItem {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
+  // Adicionado 'touch-start' como a tela inicial interativa padrão
+  const [screen, setScreen] = useState<'touch-start' | 'menu' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('touch-start');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
   // Informações da Sessão Atual
@@ -106,7 +107,7 @@ export default function App() {
 
   // Lógica da Contagem Regressiva (5 segundos)
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: NodeJS.Timeout;
     if (screen === 'booth' && step === 'countdown' && !isEnded) {
       if (countdown > 0) {
         timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -119,7 +120,7 @@ export default function App() {
 
   // Lógica do Preview da foto tirada no monitor (5 segundos)
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: NodeJS.Timeout;
     if (screen === 'booth' && step === 'preview' && !isEnded) {
       if (previewTimer > 0) {
         timer = setTimeout(() => setPreviewTimer(previewTimer - 1), 1000);
@@ -280,10 +281,52 @@ export default function App() {
         className="hidden" 
       />
 
-      {/* TELA 1: MENU INICIAL */}
+      {/* TELA INICIAL: TOQUE PARA COMEÇAR (ESTILO ESPELHO MÁGICO) */}
+      {screen === 'touch-start' && (
+        <div 
+          onClick={() => setScreen('menu')}
+          className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-pink-950 flex flex-col items-center justify-center cursor-pointer select-none z-30 p-6 text-center animate-fade-in"
+        >
+          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+            <div className="absolute w-72 h-72 bg-pink-500 rounded-full blur-3xl -top-20 -left-20 animate-pulse"></div>
+            <div className="absolute w-96 h-96 bg-purple-600 rounded-full blur-3xl -bottom-20 -right-20 animate-pulse"></div>
+          </div>
+
+          <Sparkles className="w-16 h-16 text-pink-400 mb-6 animate-bounce" />
+          <h1 className="text-4xl md:text-6xl font-black tracking-widest text-white mb-3 drop-shadow-lg">
+            BEM-VINDO AO ESPELHO MÁGICO
+          </h1>
+          <p className="text-slate-300 text-lg md:text-xl font-medium mb-12 max-w-md">
+            {eventName}
+          </p>
+
+          <div className="bg-pink-600 hover:bg-pink-500 text-white font-black text-xl md:text-2xl px-10 py-5 rounded-3xl shadow-2xl transition-all transform hover:scale-105 active:scale-95 border-2 border-pink-400/50 animate-pulse">
+            TOQUE PARA COMEÇAR
+          </div>
+
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setScreen('menu');
+            }}
+            className="absolute bottom-6 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Acessar Painel / Configurações (Operador)
+          </button>
+        </div>
+      )}
+
+      {/* TELA 1: MENU PRINCIPAL */}
       {screen === 'menu' && (
         <div className="text-center flex flex-col items-center max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl">
-          <h1 className="text-3xl font-bold mb-2">CABINE DE FOTOS</h1>
+          <button 
+            onClick={() => setScreen('touch-start')}
+            className="self-start flex items-center gap-1 text-slate-400 hover:text-white text-xs mb-4 cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Voltar à Tela Inicial
+          </button>
+
+          <h1 className="text-3xl font-bold mb-2">PAINEL DA CABINE</h1>
           <p className="text-slate-400 mb-6">Sessão Atual: <span className="text-pink-400 font-semibold">{eventName}</span></p>
           
           <div className="flex flex-col gap-3 w-full">
@@ -470,7 +513,7 @@ export default function App() {
             <div className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 aspect-[1/3] max-h-[55vh]">
               <div className="absolute inset-0 p-2 flex flex-col justify-around bg-slate-100">
                 {selectedFrameModal.photos.map((p, idx) => (
-                  <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
                 ))}
               </div>
               {selectedFrameModal.frameUrl && (
@@ -653,8 +696,14 @@ export default function App() {
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
           <div className="flex items-center justify-between w-full mb-2">
-            <button onClick={() => setScreen('menu')} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer">
-              <ArrowLeft className="w-4 h-4" /> Menu Principal
+            <button 
+              onClick={() => {
+                setIsEnded(false);
+                setScreen('touch-start');
+              }} 
+              className="flex items-center gap-1 text-slate-400 hover:text-white text-sm cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> Tela Inicial
             </button>
             <h1 className="text-xl font-bold">{eventName}</h1>
             <div className="w-16"></div>
@@ -767,10 +816,10 @@ export default function App() {
                 <span className="text-7xl font-black text-pink-500 tracking-wider mb-4 animate-bounce z-10">FIM</span>
                 <p className="text-slate-400 text-sm z-10 mb-6">Sessão finalizada com sucesso!</p>
                 <button
-                  onClick={() => setScreen('menu')}
+                  onClick={() => setScreen('touch-start')}
                   className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg z-10 transition-all cursor-pointer"
                 >
-                  Voltar ao Menu Principal
+                  Voltar à Tela Inicial
                 </button>
               </div>
             )}
@@ -805,7 +854,7 @@ export default function App() {
               <button
                 onClick={() => {
                   setShowEndModal(false);
-                  setIsEnded(true);
+                  setScreen('touch-start');
                 }}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow transition-all cursor-pointer"
               >
