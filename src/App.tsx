@@ -129,7 +129,7 @@ export default function App() {
     setPhotoIndex(1);
     setCountdown(5);
     setStep('idle');
-    setScreen('booth');
+    setScreen('booth'); // Força a troca imediata para a tela da cabine
   };
 
   const takePhoto = () => {
