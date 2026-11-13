@@ -18,7 +18,6 @@ interface FrameItem {
 }
 
 export default function App() {
-  // Inicia na Tela 1: Painel de Configuração e Menu
   const [screen, setScreen] = useState<'menu' | 'touch-start' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('menu');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
@@ -199,14 +198,13 @@ export default function App() {
     }
   };
 
-  const getCountdownMessage = (count: number) => {
-    switch (count) {
-      case 5: return "Arrumem o visual! ✨";
-      case 4: return "Sorriam para o espelho! 😁";
-      case 3: return "Quase lá... 📸";
-      case 2: return "Preparados?! 🚀";
-      case 1: return "VALENDO! 🔥";
-      default: return "Preparando...";
+  // Retorna uma única frase clara e distinta para cada foto da sequência
+  const getSessionMessage = (index: number) => {
+    switch (index) {
+      case 1: return "Arrumem o visual e preparem a pose! ✨";
+      case 2: return "Uau, agora façam aquela careta ou sorriso! 😁";
+      case 3: return "Última foto, capriche no estilo! 🚀";
+      default: return "Prepare-se para a foto!";
     }
   };
 
@@ -760,11 +758,12 @@ export default function App() {
 
             {step === 'countdown' && !isEnded && (
               <>
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs gap-3">
-                  <span className="text-2xl md:text-3xl font-bold text-pink-300 drop-shadow animate-pulse text-center px-4">
-                    {getCountdownMessage(countdown)}
+                {/* Imagem da câmera escurecida e uma frase estática de cor clara */}
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-xs gap-4 p-4 text-center">
+                  <span className="text-2xl md:text-3xl font-extrabold text-pink-200 drop-shadow-md tracking-wide px-2">
+                    {getSessionMessage(photoIndex)}
                   </span>
-                  <span className="text-9xl font-black text-pink-500 animate-bounce drop-shadow-2xl">
+                  <span className="text-9xl font-black text-white animate-pulse drop-shadow-2xl">
                     {countdown}
                   </span>
                 </div>
@@ -778,10 +777,10 @@ export default function App() {
                         node.srcObject = videoRef.current.srcObject;
                       }
                     }}
-                    className="w-full h-full object-cover -scale-x-100"
+                    className="w-full h-full object-cover -scale-x-100 opacity-50"
                   />
                   {activeFrame && (
-                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                    <img src={activeFrame} alt="Moldura Guia" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-50" />
                   )}
                 </div>
               </>
