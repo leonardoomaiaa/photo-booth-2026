@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, FileText, Globe, Volume2 } from 'lucide-react';
 
 export default function App() {
-  const [screen, setScreen] = useState<'menu' | 'camera-config' | 'booth'>('menu');
+  const [screen, setScreen] = useState<'menu' | 'sources-modal' | 'booth'>('menu');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   const [photoIndex, setPhotoIndex] = useState<number>(1);
   const [countdown, setCountdown] = useState<number>(5);
   const [previewTimer, setPreviewTimer] = useState<number>(5);
   const [photos, setPhotos] = useState<string[]>([]);
   
-  // Estados para gerenciar as câmeras
+  // Estados para fontes estilo OBS
+  const [selectedSourceType, setSelectedSourceType] = useState<string>('video-capture');
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
@@ -123,85 +124,141 @@ export default function App() {
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* TELA 1: MENU INICIAL */}
+      {/* TELA 1: MENU INICIAL (Com os dois botões principais) */}
       {screen === 'menu' && (
         <div className="text-center flex flex-col items-center max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl">
           <h1 className="text-3xl font-bold mb-2">CABINE DE FOTOS</h1>
-          <p className="text-slate-400 mb-8">Escolha uma opção para começar</p>
+          <p className="text-slate-400 mb-8">Gerenciador de Sessão e Fontes</p>
           
           <div className="flex flex-col gap-4 w-full">
             <button
               onClick={startSequence}
               className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transition-all text-lg"
             >
-              <Camera className="w-6 h-6" /> Iniciar Cabine (3 Fotos)
+              <Camera className="w-6 h-6" /> Iniciar Sessão
             </button>
 
             <button
-              onClick={() => setScreen('camera-config')}
+              onClick={() => setScreen('sources-modal')}
               className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-4 px-6 rounded-2xl border border-slate-700 transition-all text-lg"
             >
-              <Settings className="w-6 h-6 text-pink-500" /> Escolher Câmera
+              <Settings className="w-6 h-6 text-pink-500" /> Inserir Fontes
             </button>
           </div>
         </div>
       )}
 
-      {/* TELA 2: CONFIGURAÇÃO DE CÂMERA */}
-      {screen === 'camera-config' && (
-        <div className="flex flex-col items-center max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl">
-          <div className="flex items-center justify-between w-full mb-6">
-            <button
+      {/* TELA 2: ESTILO OBS STUDIO (ADICIONAR FONTE) */}
+      {screen === 'sources-modal' && (
+        <div className="w-full max-w-5xl h-[600px] bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
+          {/* Barra Superior */}
+          <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <span className="font-semibold text-sm">Adicionar fonte</span>
+            <button 
               onClick={() => setScreen('menu')}
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium"
+              className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1"
             >
-              <ArrowLeft className="w-5 h-5" /> Voltar
+              ✕
             </button>
-            <h2 className="text-xl font-bold">Configurar Câmera</h2>
-            <div className="w-12"></div> {/* Espaçador para centralizar */}
           </div>
 
-          <div className="w-full bg-black rounded-2xl overflow-hidden aspect-[4/3] border border-slate-800 mb-6 flex items-center justify-center relative">
-            <video
-              autoPlay
-              playsInline
-              muted
-              ref={(node) => {
-                if (node && videoRef.current && videoRef.current.srcObject) {
-                  node.srcObject = videoRef.current.srcObject;
-                }
-              }}
-              className="w-full h-full object-cover -scale-x-100"
-            />
-          </div>
+          {/* Corpo Estilo OBS */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Menu Lateral Esquerdo */}
+            <div className="w-72 bg-[#121418] border-r border-slate-800 flex flex-col overflow-y-auto p-2 gap-1">
+              <div className="text-xs font-bold text-slate-500 px-3 py-2 uppercase tracking-wider">Criado recentemente</div>
+              
+              <button 
+                onClick={() => setSelectedSourceType('video-capture')}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${selectedSourceType === 'video-capture' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}
+              >
+                <Video className="w-4 h-4 text-pink-500" /> Dispositivo de captura de vídeo
+              </button>
 
-          <div className="w-full flex flex-col gap-2 mb-6">
-            <label className="text-sm text-slate-400 flex items-center gap-2">
-              <Video className="w-4 h-4 text-pink-500" /> Câmeras disponíveis:
-            </label>
-            <select
-              value={selectedDeviceId}
-              onChange={(e) => setSelectedDeviceId(e.target.value)}
-              className="bg-slate-800 text-white rounded-xl p-3 outline-none border border-slate-700 text-sm w-full"
-            >
-              {devices.map((device, idx) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || `Câmera USB ${idx + 1}`}
-                </option>
-              ))}
-            </select>
-          </div>
+              <button 
+                onClick={() => setSelectedSourceType('image')}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${selectedSourceType === 'image' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}
+              >
+                <ImageIcon className="w-4 h-4 text-blue-400" /> Imagem (Moldura)
+              </button>
 
-          <button
-            onClick={() => setScreen('menu')}
-            className="w-full bg-pink-600 hover:bg-pink-500 font-bold py-3 px-6 rounded-xl shadow transition-all"
-          >
-            Salvar e Voltar ao Menu
-          </button>
+              <button 
+                onClick={() => setSelectedSourceType('audio')}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${selectedSourceType === 'audio' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}
+              >
+                <Volume2 className="w-4 h-4 text-emerald-400" /> Captura de entrada de áudio
+              </button>
+
+              <button 
+                onClick={() => setSelectedSourceType('text')}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${selectedSourceType === 'text' ? 'bg-[#2a2f3d] text-white font-medium border-l-4 border-pink-500' : 'hover:bg-[#222632] text-slate-300'}`}
+              >
+                <FileText className="w-4 h-4 text-amber-400" /> Texto (GDI+)
+              </button>
+            </div>
+
+            {/* Painel de Conteúdo à Direita */}
+            <div className="flex-1 bg-[#1a1d24] p-6 flex flex-col justify-between overflow-y-auto">
+              <div>
+                <h2 className="text-base font-semibold text-white mb-1">
+                  {selectedSourceType === 'video-capture' && 'Dispositivo de captura de vídeo'}
+                  {selectedSourceType === 'image' && 'Imagem'}
+                  {selectedSourceType === 'audio' && 'Captura de entrada de áudio'}
+                  {selectedSourceType === 'text' && 'Texto (GDI+)'}
+                </h2>
+                <p className="text-xs text-slate-400 mb-6">Selecione quais fontes serão adicionadas à sua cena atual.</p>
+
+                {selectedSourceType === 'video-capture' && (
+                  <div className="flex flex-col gap-4">
+                    <div className="border border-dashed border-slate-700 rounded-lg p-4 text-center cursor-pointer hover:border-pink-500 transition-colors">
+                      <span className="text-sm text-slate-300">+ Adicionar novo Dispositivo de captura de vídeo</span>
+                    </div>
+
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-2">Câmeras disponíveis conectadas:</div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {devices.map((device, idx) => (
+                        <div 
+                          key={device.deviceId}
+                          onClick={() => setSelectedDeviceId(device.deviceId)}
+                          className={`p-3 rounded-lg border cursor-pointer flex flex-col items-center gap-2 transition-all ${selectedDeviceId === device.deviceId ? 'border-pink-500 bg-[#252a37]' : 'border-slate-800 bg-[#121418] hover:border-slate-700'}`}
+                        >
+                          <Video className={`w-8 h-8 ${selectedDeviceId === device.deviceId ? 'text-pink-500' : 'text-slate-500'}`} />
+                          <span className="text-xs text-center font-medium text-slate-200">
+                            {device.label || `Câmera USB / Porta ${idx + 1}`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedSourceType !== 'video-capture' && (
+                  <div className="text-sm text-slate-400 p-8 text-center border border-slate-800 rounded-lg bg-[#121418]">
+                    Nenhum arquivo ou dispositivo adicional configurado para esta fonte ainda.
+                  </div>
+                )}
+              </div>
+
+              {/* Rodapé do Modal */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-800 mt-6">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input type="checkbox" defaultChecked className="rounded bg-slate-800 border-slate-700 text-pink-600 focus:ring-0" />
+                  Tornar a fonte visível
+                </label>
+                <button
+                  onClick={() => setScreen('menu')}
+                  className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all"
+                >
+                  Fechar / Salvar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* TELA 3: FLUXO DA CABINE DE FOTOS */}
+      {/* TELA 3: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
           <div className="flex items-center justify-between w-full mb-2">
