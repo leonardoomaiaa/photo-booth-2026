@@ -18,7 +18,7 @@ interface FrameItem {
 }
 
 export default function App() {
-  // Adicionado 'touch-start' como a tela inicial interativa padrão
+  // O app agora inicia na tela imersiva "Toque para Começar"
   const [screen, setScreen] = useState<'touch-start' | 'menu' | 'sources-modal' | 'obs-properties' | 'image-properties' | 'register-session' | 'history' | 'session-detail' | 'booth'>('touch-start');
   const [step, setStep] = useState<'idle' | 'countdown' | 'preview' | 'done'>('idle');
   
@@ -281,7 +281,7 @@ export default function App() {
         className="hidden" 
       />
 
-      {/* TELA INICIAL: TOQUE PARA COMEÇAR (ESTILO ESPELHO MÁGICO) */}
+      {/* TELA INICIAL: TOQUE PARA COMEÇAR (EXIBIDA PRIMEIRO) */}
       {screen === 'touch-start' && (
         <div 
           onClick={() => setScreen('menu')}
@@ -304,19 +304,13 @@ export default function App() {
             TOQUE PARA COMEÇAR
           </div>
 
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              setScreen('menu');
-            }}
-            className="absolute bottom-6 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            Acessar Painel / Configurações (Operador)
-          </button>
+          <span className="absolute bottom-6 text-xs text-slate-500">
+            Toque em qualquer lugar da tela para abrir o painel
+          </span>
         </div>
       )}
 
-      {/* TELA 1: MENU PRINCIPAL */}
+      {/* TELA DO PAINEL DA CABINE (MENU APÓS O TOQUE) */}
       {screen === 'menu' && (
         <div className="text-center flex flex-col items-center max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl">
           <button 
