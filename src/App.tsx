@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X } from 'lucide-react';
+import { Camera, Printer, RefreshCcw, Settings, ArrowLeft, Video, Image as ImageIcon, Plus, Calendar, Clock, History, XCircle, Download, Eye, X, Check } from 'lucide-react';
 
 interface SessionRecord {
   id: string;
@@ -8,6 +8,13 @@ interface SessionRecord {
   clientName: string;
   photosCount: number;
   photos: string[];
+  frameUrl?: string | null;
+}
+
+interface FrameItem {
+  id: string;
+  url: string;
+  name: string;
 }
 
 export default function App() {
@@ -19,9 +26,17 @@ export default function App() {
   const [clientName, setClientName] = useState<string>('Cliente Padrão');
   const [sessionNotes, setSessionNotes] = useState<string>('Sessão padrão de cabine de fotos.');
   
-  // Moldura personalizada da sessão
-  const [customFrame, setCustomFrame] = useState<string | null>(() => {
-    return localStorage.getItem('photo_booth_custom_frame') || null;
+  // Lista de Molduras salvas e a Moldura Ativa
+  const [framesList, setFramesList] = useState<FrameItem[]>(() => {
+    const saved = localStorage.getItem('photo_booth_frames_list');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return []; }
+    }
+    return [];
+  });
+  
+  const [activeFrame, setActiveFrame] = useState<string | null>(() => {
+    return localStorage.getItem('photo_booth_active_frame') || null;
   });
   
   // Histórico salvo no navegador de forma segura
@@ -121,7 +136,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [screen, step, previewTimer, photoIndex, isEnded]);
 
-  // Função para salvar a sessão no histórico de forma segura
+  // Função para salvar a sessão no histórico com a moldura utilizada
   const registerCompletedSession = (capturedPhotos: string[]) => {
     const newRecord: SessionRecord = {
       id: Date.now().toString(),
@@ -129,7 +144,8 @@ export default function App() {
       eventName: eventName,
       clientName: clientName,
       photosCount: capturedPhotos.length,
-      photos: capturedPhotos
+      photos: capturedPhotos,
+      frameUrl: activeFrame
     };
     try {
       const updatedHistory = [newRecord, ...sessionsHistory];
@@ -185,52 +201,76 @@ export default function App() {
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const result = uploadEvent.target?.result as string;
-        setCustomFrame(result);
-        localStorage.setItem('photo_booth_custom_frame', result);
-        setScreen('image-properties');
+        const newFrame: FrameItem = {
+          id: Date.now().toString(),
+          url: result,
+          name: file.name
+        };
+        const updatedFrames = [...framesList, newFrame];
+        setFramesList(updatedFrames);
+        localStorage.setItem('photo_booth_frames_list', JSON.stringify(updatedFrames));
+        
+        // Define automaticamente como ativa ao carregar
+        setActiveFrame(result);
+        localStorage.setItem('photo_booth_active_frame', result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Função para gerar e baixar a moldura completa combinada
+  // Função para gerar e baixar a moldura completa combinada com as 3 fotos
   const downloadFullFrame = (session: SessionRecord) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = 400;
-    canvas.height = 1200;
+    canvas.width = 600;
+    canvas.height = 1800;
 
+    // Fundo branco base
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    let loadedCount = 0;
-    const imageElements: HTMLImageElement[] = [];
+    let loadedImages = 0;
+    const totalImages = session.photos.length + (session.frameUrl ? 1 : 0);
 
+    const checkComplete = () => {
+      loadedImages++;
+      if (loadedImages === totalImages) {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `moldura_${session.eventName.replace(/\s+/g, '_')}_${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+
+    // 1. Desenha as 3 fotos primeiro nos espaços reservados
     session.photos.forEach((photoUrl, idx) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = photoUrl;
       img.onload = () => {
-        imageElements[idx] = img;
-        loadedCount++;
-
-        if (loadedCount === session.photos.length) {
-          imageElements.forEach((image, i) => {
-            const yPos = 30 + i * 380;
-            ctx.drawImage(image, 25, yPos, 350, 350);
-          });
-
-          const link = document.createElement('a');
-          link.href = canvas.toDataURL('image/png');
-          link.download = `moldura_${session.eventName.replace(/\s+/g, '_')}_${Date.now()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
+        // Coordenadas proporcionais para os 3 espaços da tira
+        const yPos = 80 + idx * 560;
+        ctx.drawImage(img, 50, yPos, 500, 500);
+        checkComplete();
       };
     });
+
+    // 2. Desenha a moldura por cima das fotos (se houver)
+    if (session.frameUrl) {
+      const frameImg = new Image();
+      frameImg.crossOrigin = 'anonymous';
+      frameImg.src = session.frameUrl;
+      frameImg.onload = () => {
+        ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        checkComplete();
+      };
+    } else {
+      checkComplete();
+    }
   };
 
   return (
@@ -386,7 +426,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: DETALHE DA SESSÃO COM EXIBIÇÃO DA MOLDURA COMPLETA */}
+      {/* TELA: DETALHE DA SESSÃO COM EXIBIÇÃO DA MOLDURA E FOTOS POSICIONADAS */}
       {screen === 'session-detail' && activeSessionDetail && (
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl flex flex-col gap-4 max-h-[85vh]">
           <div className="flex items-center justify-between">
@@ -402,13 +442,20 @@ export default function App() {
           <div className="w-full bg-slate-950 border-2 border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center overflow-y-auto max-h-[55vh]">
             <div 
               onClick={() => setSelectedFrameModal(activeSessionDetail)}
-              className="w-36 bg-white p-2 rounded shadow-2xl cursor-pointer border-2 border-slate-300 flex flex-col gap-2 transition-transform hover:scale-105 relative group"
+              className="w-32 bg-white rounded shadow-2xl cursor-pointer border-2 border-slate-300 transition-transform hover:scale-105 relative group overflow-hidden aspect-[1/3]"
             >
-              {activeSessionDetail.photos.map((p, idx) => (
-                <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded pointer-events-none" />
-              ))}
+              {/* Fotos posicionadas ao fundo */}
+              <div className="absolute inset-0 p-1 flex flex-col justify-around bg-slate-100">
+                {activeSessionDetail.photos.map((p, idx) => (
+                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                ))}
+              </div>
+              {/* Moldura por cima */}
+              {activeSessionDetail.frameUrl && (
+                <img src={activeSessionDetail.frameUrl} alt="Moldura" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+              )}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 rounded">
-                <Eye className="w-4 h-4" /> Ampliar Moldura
+                <Eye className="w-4 h-4" /> Ampliar
               </div>
             </div>
           </div>
@@ -428,10 +475,15 @@ export default function App() {
 
             <h3 className="text-base font-bold text-white">Moldura Completa</h3>
 
-            <div className="bg-white p-3 rounded-2xl shadow-2xl w-48 flex flex-col gap-3 border-4 border-slate-300 max-h-[55vh] overflow-y-auto">
-              {selectedFrameModal.photos.map((p, idx) => (
-                <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded pointer-events-none" />
-              ))}
+            <div className="relative bg-white rounded-2xl shadow-2xl w-48 overflow-hidden border-4 border-slate-300 aspect-[1/3] max-h-[55vh]">
+              <div className="absolute inset-0 p-2 flex flex-col justify-around bg-slate-100">
+                {selectedFrameModal.photos.map((p, idx) => (
+                  <img key={idx} src={p} alt={`Foto ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
+                ))}
+              </div>
+              {selectedFrameModal.frameUrl && (
+                <img src={selectedFrameModal.frameUrl} alt="Moldura" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+              )}
             </div>
 
             <button
@@ -496,19 +548,51 @@ export default function App() {
                   <>
                     <h2 className="text-base font-semibold text-white mb-1">Imagem (Moldura)</h2>
                     <p className="text-xs text-slate-400 mb-6">Selecione a imagem de moldura que será aplicada na cabine.</p>
+                    
                     <div 
                       onClick={() => fileInputRef.current?.click()}
-                      className="border border-dashed border-slate-700 hover:border-pink-500 bg-[#121418] rounded-lg p-6 text-center cursor-pointer transition-colors flex items-center justify-center gap-2 group"
+                      className="border border-dashed border-slate-700 hover:border-pink-500 bg-[#121418] rounded-lg p-6 text-center cursor-pointer transition-colors flex items-center justify-center gap-2 group mb-4"
                     >
                       <Plus className="w-5 h-5 text-slate-400 group-hover:text-pink-500" />
                       <span className="text-sm text-slate-300 group-hover:text-white font-medium">+ Adicionar nova Imagem (Moldura)</span>
                     </div>
-                    {customFrame && (
-                      <div className="mt-4 flex items-center gap-3 bg-[#121418] p-3 rounded-lg border border-slate-800">
-                        <img src={customFrame} alt="Moldura atual" className="w-12 h-12 object-cover rounded" />
-                        <span className="text-xs text-emerald-400 font-medium">Moldura carregada com sucesso!</span>
-                      </div>
-                    )}
+
+                    {/* Lista de Molduras salvas com o botão "Usar" */}
+                    <div className="flex flex-col gap-3">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Molduras Disponíveis:</span>
+                      {framesList.length === 0 ? (
+                        <p className="text-xs text-slate-500">Nenhuma moldura inserida ainda.</p>
+                      ) : (
+                        framesList.map((frame) => (
+                          <div key={frame.id} className="flex items-center justify-between bg-[#121418] p-3 rounded-lg border border-slate-800">
+                            <div className="flex items-center gap-3">
+                              <img src={frame.url} alt={frame.name} className="w-12 h-16 object-cover rounded border border-slate-700" />
+                              <div className="flex flex-col">
+                                <span className="text-xs font-semibold text-white">{frame.name}</span>
+                                {activeFrame === frame.url && (
+                                  <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> Em uso atualmente
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setActiveFrame(frame.url);
+                                localStorage.setItem('photo_booth_active_frame', frame.url);
+                              }}
+                              className={`text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer ${
+                                activeFrame === frame.url 
+                                  ? 'bg-emerald-600 text-white' 
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                              }`}
+                            >
+                              {activeFrame === frame.url ? 'Usando' : 'Usar'}
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -576,39 +660,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA: JANELA DE PROPRIEDADES DE IMAGEM ESTILO OBS */}
-      {screen === 'image-properties' && (
-        <div className="w-full max-w-2xl bg-[#1a1d24] border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-slate-200">
-          <div className="bg-[#121418] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-            <span className="font-semibold text-sm">Propriedades de 'Imagem (Moldura)'</span>
-            <button onClick={() => setScreen('sources-modal')} className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 cursor-pointer">✕</button>
-          </div>
-
-          <div className="p-6 flex flex-col gap-6 items-center">
-            <div className="w-48 h-64 bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center relative">
-              {customFrame ? (
-                <img src={customFrame} alt="Pré-visualização da moldura" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xs text-slate-500">Nenhuma imagem carregada</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm px-6 py-2.5 rounded-lg border border-slate-700 transition-all cursor-pointer"
-            >
-              Escolher Outra Imagem...
-            </button>
-          </div>
-
-          <div className="bg-[#121418] px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
-            <button onClick={() => setScreen('sources-modal')} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-5 py-2 rounded-lg transition-all cursor-pointer">Cancelar</button>
-            <button onClick={() => setScreen('sources-modal')} className="bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-all cursor-pointer">OK</button>
-          </div>
-        </div>
-      )}
-
-      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO) */}
+      {/* TELA: FLUXO DA CABINE DE FOTOS (SESSÃO COM MOLDURA ATIVA) */}
       {screen === 'booth' && (
         <div className="flex flex-col items-center w-full max-w-md">
           <div className="flex items-center justify-between w-full mb-2">
@@ -623,7 +675,7 @@ export default function App() {
             {step === 'idle' && "Câmera ativa. Clique em Começar para iniciar!"}
             {step === 'countdown' && `Foto ${photoIndex} de 3 - Preparando em ${countdown}s...`}
             {step === 'preview' && `Exibindo foto ${photoIndex} de 3 (${previewTimer}s)...`}
-            {step === 'done' && !isEnded && "Sua tira ficou pronta!"}
+            {step === 'done' && !isEnded && "Sua tira ficou pronta com a moldura!"}
             {isEnded && "Sessão encerrada com sucesso."}
           </p>
 
@@ -642,6 +694,10 @@ export default function App() {
                     }}
                     className="w-full h-full object-cover -scale-x-100"
                   />
+                  {/* Sobrepõe prévia da moldura se houver */}
+                  {activeFrame && (
+                    <img src={activeFrame} alt="Moldura ativa" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                  )}
                 </div>
                 <div className="w-full pt-4">
                   <button
@@ -671,6 +727,9 @@ export default function App() {
                     }}
                     className="w-full h-full object-cover -scale-x-100"
                   />
+                  {activeFrame && (
+                    <img src={activeFrame} alt="Moldura ativa" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                  )}
                 </div>
               </>
             )}
@@ -678,18 +737,25 @@ export default function App() {
             {step === 'preview' && photos.length > 0 && !isEnded && (
               <div className="w-full h-full relative flex items-center justify-center bg-black">
                 <img src={photos[photos.length - 1]} alt="Foto capturada" className="w-full h-full object-cover" />
+                {activeFrame && (
+                  <img src={activeFrame} alt="Moldura ativa" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80" />
+                )}
                 <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-sm font-semibold text-pink-400">
                   Próxima em {previewTimer}s
                 </div>
               </div>
             )}
 
+            {/* TELA FINAL COM A MOLDURA E AS 3 FOTOS POSICIONADAS */}
             {step === 'done' && !isEnded && (
-              <div className="w-full h-full p-4 bg-white flex flex-col items-center justify-around">
-                <div className="w-32 h-full flex flex-col gap-2 bg-slate-100 p-2 border border-slate-300 rounded shadow-inner overflow-y-auto">
+              <div className="w-full h-full p-4 bg-white flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="relative w-36 aspect-[1/3] bg-slate-100 rounded shadow-inner overflow-hidden flex flex-col justify-around p-1 border border-slate-300">
                   {photos.map((p, idx) => (
                     <img key={idx} src={p} alt={`Pose ${idx + 1}`} className="w-full aspect-[4/3] object-cover rounded" />
                   ))}
+                  {activeFrame && (
+                    <img src={activeFrame} alt="Moldura" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                  )}
                 </div>
               </div>
             )}
